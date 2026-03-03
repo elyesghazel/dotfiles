@@ -1,4 +1,5 @@
 ags-hyprpanel-git
+appimagelauncher
 catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
 neofetch
