@@ -1,0 +1,49 @@
+* {
+    font-family: "Inter", "JetBrainsMono Nerd Font";
+    font-size: 13px;
+    font-weight: 600;
+}
+
+window#waybar {
+    background: rgba(15, 15, 15, 0.65); /* Glas-Look */
+    color: #ffffff;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Alle Module kriegen mehr seitlichen Abstand */
+#workspaces, #clock, #cpu, #memory, #pulseaudio, #network, #tray {
+    padding: 0 15px;
+    margin: 5px 0;
+}
+
+/* Tray speziell isolieren für mehr Luft */
+#tray {
+    margin-left: 20px;
+}
+
+#workspaces button {
+    padding: 0 6px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+#workspaces button.active {
+    color: #33ccff; /* Ein schönes Blau für den aktiven Desktop */
+}
+
+/* Dezente Farben für CPU/RAM (optional) */
+#cpu { color: #fbbf24; }
+#memory { color: #34d399; }
+
+
+#custom-menu {
+    font-size: 22px;
+    padding: 0 15px 0 10px;
+    color: #1793d1; /* Arch-Blau */
+}
+
+#custom-menu:hover {
+    color: #ffffff;
+}
+
+

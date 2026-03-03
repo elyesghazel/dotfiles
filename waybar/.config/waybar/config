@@ -1,0 +1,64 @@
+{
+    "layer": "top",
+    "position": "top",
+    "margin-top": 10,
+    "margin-left": 20,
+    "margin-right": 20,
+    "spacing": 10,
+
+    "modules-left": ["custom/menu", "hyprland/workspaces"],
+    "modules-center": ["clock"],
+    "modules-right": ["cpu", "memory", "pulseaudio", "network", "tray"],
+
+    "custom/menu": {
+        "format": "󰣇", // Das Arch Logo
+        "on-click": "vicinae toggle",
+        "tooltip": false
+    },
+
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "on-click": "activate",
+        "format-icons": {
+            "active": "",
+            "default": ""
+        },
+        "persistent-workspaces": {
+            "*": [ 1, 2, 3, 4 ]
+        }
+    },
+
+    "clock": {
+        "format": "󱑊 {:%H:%M}",
+        "tooltip-format": "{:%A, %d. %B %Y}"
+    },
+
+    "cpu": {
+        "format": "󰻠 {usage}%",
+        "interval": 2
+    },
+
+    "memory": {
+        "format": "󰍛 {percentage}%",
+        "interval": 5
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "󰝟",
+        "format-icons": { "default": ["󰕿", "󰖀", "󰕾"] },
+        "on-click": "pavucontrol"
+    },
+
+    "network": {
+        "format-wifi": "",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "󰖪",
+        "on-click": "kitty nmtui"
+    },
+
+    "tray": {
+        "icon-size": 20,
+        "spacing": 15
+    }
+}
