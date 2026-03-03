@@ -11,6 +11,7 @@ vesktop-bin
 vicinae-git
 visual-studio-code-bin
 waybar-module-pacman-updates-git
+whatsapp-for-linux-git
 wlogout
 wttrbar
 yay
