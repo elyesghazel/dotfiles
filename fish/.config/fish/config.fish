@@ -21,11 +21,6 @@ abbr -a fconf "nano ~/.config/fish/config.fish"
 abbr -a vconf "nano ~/.config/vicinae/config.json"
 abbr -a upall "update_all"
 
-# node & pnpm redirects
-abbr -a n "pnpm"
-abbr -a ni "pnpm install"
-abbr -a nr "pnpm run"
-abbr -a npx "pnpx"
 
 # 4. interactive tools
 zoxide init fish | source
