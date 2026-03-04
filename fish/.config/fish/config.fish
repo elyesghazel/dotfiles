@@ -25,7 +25,6 @@ abbr -a upall "update_all"
 abbr -a n "pnpm"
 abbr -a ni "pnpm install"
 abbr -a nr "pnpm run"
-abbr -a npm "pnpm"
 abbr -a npx "pnpx"
 
 # 4. interactive tools
