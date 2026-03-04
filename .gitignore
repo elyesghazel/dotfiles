@@ -1,3 +1,4 @@
-.config/fish/functions/sc_corproot.fish
-.config/fish/functions/sc_private.fish
+# sensitive / private fish scripts
+fish/.config/fish/functions/sc_corproot.fish
+fish/.config/fish/functions/sc_private.fish
 
