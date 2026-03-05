@@ -27,6 +27,7 @@
    },
    "launcher_window": {},
    "favorites": [
+      "applications:vesktop",
       "applications:whatsapp",
       "applications:code",
       "applications:antigravity",
@@ -59,6 +60,9 @@
          "entrypoints": {
             "antigravity": {
                "alias": "an"
+            },
+            "vesktop": {
+               "alias": "disc"
             }
          }
       },
@@ -73,6 +77,9 @@
          "entrypoints": {
             "31fb499b-d6a5-499c-b151-5c9bec2c11bc": {
                "alias": "ai"
+            },
+            "eb33e5e0-90fd-4ce7-ae59-45280d716194": {
+               "alias": "cad"
             }
          }
       }
