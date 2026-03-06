@@ -1,5 +1,5 @@
 # 2. kill process on port
-function kport
+function killport
     if test (count $argv) -eq 0
         echo "usage: kp <port>"
         return 1
