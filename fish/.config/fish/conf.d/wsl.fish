@@ -10,3 +10,5 @@ abbr -a cdbiz "cd $BIZ_PATH"
 abbr -a cdedu "cd $EDU_PATH"
 abbr -a cdplay "cd $PLAY_PATH"
 
+
+nvm use latest
