@@ -2,6 +2,7 @@ ags-hyprpanel-git
 appimagelauncher
 catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
+localsend-bin
 neofetch
 python-gpustat
 python-pywal16

@@ -7,6 +7,7 @@ bluez
 bluez-utils
 brightnessctl
 btop
+chromium
 cliphist
 dkms
 dolphin
@@ -30,6 +31,7 @@ hyprland
 hyprlock
 hyprpaper
 iwd
+kicad
 kitty
 libadwaita
 libpulse
@@ -44,6 +46,7 @@ matugen
 mpv
 nano
 nemo
+net-tools
 network-manager-applet
 networkmanager
 noto-fonts-emoji
@@ -54,6 +57,7 @@ otf-font-awesome
 pacman-contrib
 papirus-icon-theme
 pavucontrol
+picocom
 pipewire
 pipewire-alsa
 pipewire-jack
@@ -65,6 +69,7 @@ qt5-wayland
 qt6-wayland
 rofi
 rsync
+screen
 sddm
 slurp
 smartmontools
