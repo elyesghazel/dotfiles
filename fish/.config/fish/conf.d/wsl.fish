@@ -12,3 +12,6 @@ abbr -a cdplay "cd $PLAY_PATH"
 
 
 nvm use latest
+
+set -gx DOCKER_CONFIG $HOME/.docker-clean
+set -gx PATH (string match -v '*Rancher Desktop*' $PATH)
