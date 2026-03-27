@@ -2,6 +2,8 @@ ags-hyprpanel-git
 appimagelauncher
 catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
+claude-cowork-service
+claude-desktop-bin
 localsend-bin
 neofetch
 python-gpustat
