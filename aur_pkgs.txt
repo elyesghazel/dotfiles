@@ -4,6 +4,7 @@ catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
 claude-cowork-service
 claude-desktop-bin
+intellij-idea-ultimate-edition
 localsend-bin
 neofetch
 python-gpustat
