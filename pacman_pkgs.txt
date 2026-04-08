@@ -22,6 +22,7 @@ ffmpegthumbnailer
 firefox
 fish
 flatpak
+fprintd
 git
 github-cli
 grim
@@ -40,6 +41,7 @@ iwd
 kicad
 kitty
 libadwaita
+libinput-tools
 libva-nvidia-driver
 linux
 linux-firmware
@@ -89,6 +91,7 @@ ttf-firacode-nerd
 tumbler
 tuned
 tuned-ppd
+usbutils
 uwsm
 wget
 wireless_tools
