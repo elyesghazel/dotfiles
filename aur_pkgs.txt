@@ -8,6 +8,8 @@ localsend-bin
 neofetch
 python-gpustat
 python-pywal16
+spicetify-cli
+spicetify-cli-debug
 spotify
 swaylock-effects
 vesktop-bin
