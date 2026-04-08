@@ -17,8 +17,8 @@
         "format": "{icon}",
         "on-click": "activate",
         "format-icons": {
-            "active": "",
-            "default": ""
+            "active": "●",
+            "default": "○"
         },
         "persistent-workspaces": {
             "*": [ 1, 2, 3, 4 ]

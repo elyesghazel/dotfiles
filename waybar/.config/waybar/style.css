@@ -9,11 +9,7 @@ window#waybar {
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
-#workspaces {
-    padding: 4px 8px;
-    margin: 6px 0;
-}
-#workspaces, #clock, #cpu, #memory, #pulseaudio, #network, #tray, #bluetooth, #battery {
+#clock, #cpu, #memory, #pulseaudio, #network, #tray, #bluetooth, #battery {
     padding: 4px 15px;
     margin: 6px 0;
 }
@@ -21,12 +17,21 @@ window#waybar {
     margin-left: 20px;
 }
 #workspaces button {
-    padding: 0 6px;
+    padding: 0 10px;
     color: rgba(255, 255, 255, 0.6);
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 #workspaces button.active {
     color: #33ccff;
 }
+#workspaces button:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
 #cpu { color: #fbbf24; }
 #memory { color: #34d399; }
 #custom-menu {
