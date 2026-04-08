@@ -1,4 +1,3 @@
-ags-hyprpanel-git
 appimagelauncher
 catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
@@ -9,14 +8,12 @@ localsend-bin
 neofetch
 python-gpustat
 python-pywal16
-spicetify-cli
 spotify
 swaylock-effects
 vesktop-bin
 vicinae-git
 visual-studio-code-bin
 waybar-module-pacman-updates-git
-whatsapp-for-linux-git
 wlogout
 wttrbar
 yay
