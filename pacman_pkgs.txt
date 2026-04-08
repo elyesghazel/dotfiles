@@ -31,6 +31,7 @@ gum
 gvfs-mtp
 htop
 hunspell
+hypridle
 hyprland
 hyprlock
 hyprpaper
@@ -101,6 +102,7 @@ xdg-desktop-portal-hyprland
 xf86-video-intel
 xorg-server
 xorg-xinit
+xournalpp
 zathura
 zathura-pdf-mupdf
 zoxide
