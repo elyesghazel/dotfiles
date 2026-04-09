@@ -14,6 +14,7 @@ cmatrix
 cups
 cups-pk-helper
 dkms
+dmidecode
 dolphin
 dunst
 efibootmgr
@@ -60,6 +61,7 @@ noto-fonts-emoji
 nuspell
 nvidia-open-dkms
 nwg-look
+obsidian
 otf-font-awesome
 papirus-icon-theme
 pavucontrol

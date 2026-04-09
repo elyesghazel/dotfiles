@@ -12,6 +12,7 @@
    "$schema": "https://vicinae.com/schemas/config.json",
    "close_on_focus_loss": false,
    "pop_to_root_on_close": true,
+   "keybinding": "default",
    "search_files_in_root": true,
    "font": {
       "normal": {
@@ -27,6 +28,8 @@
    },
    "launcher_window": {},
    "favorites": [
+      "applications:onlyoffice-desktopeditors",
+      "applications:com.github.xournalpp.xournalpp",
       "applications:localsend",
       "applications:vesktop",
       "applications:whatsapp",
@@ -61,6 +64,9 @@
          "entrypoints": {
             "antigravity": {
                "alias": "an"
+            },
+            "onlyoffice-desktopeditors": {
+               "alias": "word"
             },
             "vesktop": {
                "alias": "disc"

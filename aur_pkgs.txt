@@ -6,12 +6,15 @@ claude-desktop-bin
 intellij-idea-ultimate-edition
 localsend-bin
 neofetch
+onedrive-abraunegg
+onlyoffice-bin
 python-gpustat
 python-pywal16
 spicetify-cli
 spicetify-cli-debug
 spotify
 swaylock-effects
+teams-for-linux
 vesktop-bin
 vicinae-git
 visual-studio-code-bin
