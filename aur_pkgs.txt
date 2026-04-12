@@ -1,8 +1,6 @@
-ags-hyprpanel-git
 appimagelauncher
 catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
-claude-code
 claude-cowork-service
 claude-desktop-bin
 intellij-idea-ultimate-edition
@@ -11,14 +9,14 @@ neofetch
 python-gpustat
 python-pywal16
 spicetify-cli
+spicetify-cli-debug
 spotify
 swaylock-effects
-todoist-appimage
+teams-for-linux
 vesktop-bin
 vicinae-git
 visual-studio-code-bin
 waybar-module-pacman-updates-git
-whatsapp-for-linux-git
 wlogout
 wttrbar
 yay
