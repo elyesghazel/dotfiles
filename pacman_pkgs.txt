@@ -11,13 +11,7 @@ btop
 chromium
 cliphist
 dkms
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
 dmidecode
-=======
->>>>>>> 3732e93caf45058364cadb7cac6072727051185d
->>>>>>> Stashed changes
 docker
 docker-compose
 dolphin
