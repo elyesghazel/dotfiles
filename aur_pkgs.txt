@@ -8,6 +8,15 @@ claude-desktop-bin
 intellij-idea-ultimate-edition
 localsend-bin
 neofetch
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+onedrive-abraunegg
+onlyoffice-bin
+p3x-onenote
+=======
+>>>>>>> 3732e93caf45058364cadb7cac6072727051185d
+>>>>>>> Stashed changes
 python-gpustat
 python-pywal16
 spicetify-cli
