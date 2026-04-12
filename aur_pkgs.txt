@@ -6,6 +6,9 @@ claude-desktop-bin
 intellij-idea-ultimate-edition
 localsend-bin
 neofetch
+onedrive-abraunegg
+onlyoffice-bin
+p3x-onenote
 python-gpustat
 python-pywal16
 spicetify-cli
