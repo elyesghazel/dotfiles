@@ -42,6 +42,7 @@ hyprlock
 hyprpaper
 intel-ucode
 iwd
+kamera
 kicad
 kitty
 libadwaita
@@ -91,6 +92,7 @@ sudo
 system-config-printer
 thunar
 thunar-volman
+ttf-cascadia-code-nerd
 ttf-fira-code
 ttf-fira-sans
 ttf-firacode-nerd
