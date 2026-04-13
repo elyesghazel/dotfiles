@@ -196,7 +196,7 @@
 
     "custom/start": {
         "format": "",
-        "on-click": "~/.config/rofi/bin/drun &"
+        "on-click": "vicinae toggle"
     },
 
     "custom/ctlcenter" : {
@@ -206,9 +206,9 @@
         "menu": "on-click-right",
         "menu-file": "~/.config/waybar/context/ctlcenter.xml",
         "menu-actions": {
-            "action-1-1": "hyprctl dispatch exec '[float] alacritty -e htop'",
-            "action-1-2": "hyprctl dispatch exec '[float] alacritty -e nvtop'",
-            "action-1-3": "hyprctl dispatch exec '[float] alacritty -e pkexec powertop'",
+            "action-1-1": "hyprctl dispatch exec '[float] kitty -e htop'",
+            "action-1-2": "hyprctl dispatch exec '[float] kitty -e nvtop'",
+            "action-1-3": "hyprctl dispatch exec '[float] kitty -e pkexec powertop'",
             "action-1-4": "hyprctl dispatch exec '[float] missioncenter'",
 
             "action-2-1": "hyprctl dispatch exec nwg-look",
