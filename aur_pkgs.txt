@@ -4,11 +4,13 @@ catppuccin-gtk-theme-mocha
 claude-cowork-service
 claude-desktop-bin
 intellij-idea-ultimate-edition
+iwgtk
 localsend-bin
 neofetch
 onedrive-abraunegg
 onlyoffice-bin
 p3x-onenote
+peaclock
 python-gpustat
 python-pywal16
 spicetify-cli
