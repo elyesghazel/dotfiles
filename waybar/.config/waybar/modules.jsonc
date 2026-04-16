@@ -199,32 +199,6 @@
         "on-click": "vicinae toggle"
     },
 
-    "custom/ctlcenter" : {
-        "tooltip" : false,
-        "format" : "",
-        "on-click" : "swaync-client -t",
-        "menu": "on-click-right",
-        "menu-file": "~/.config/waybar/context/ctlcenter.xml",
-        "menu-actions": {
-            "action-1-1": "hyprctl dispatch exec '[float] kitty -e htop'",
-            "action-1-2": "hyprctl dispatch exec '[float] kitty -e nvtop'",
-            "action-1-3": "hyprctl dispatch exec '[float] kitty -e pkexec powertop'",
-            "action-1-4": "hyprctl dispatch exec '[float] missioncenter'",
-
-            "action-2-1": "hyprctl dispatch exec nwg-look",
-            "action-2-2": "hyprctl dispatch exec qt6ct",
-            "action-2-3": "hyprctl dispatch exec kvantummanager",
-
-
-
-            "action-3-1": "~/.local/bin/caffeine shutdown",
-            "action-3-2": "~/.local/bin/caffeine handle-lid-switch",
-
-            "action-4": "~/.local/bin/powersafe",
-            "action-5": "hyprctl reload"
-  		}
-    },
-
     "custom/arrow-left":  { 
         "format": "", 
         "tooltip": false, 

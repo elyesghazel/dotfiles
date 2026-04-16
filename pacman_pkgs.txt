@@ -84,6 +84,7 @@ sudo
 swaync
 thunar
 thunar-volman
+ttf-cascadia-code-nerd
 ttf-fira-code
 ttf-fira-sans
 ttf-firacode-nerd
@@ -91,7 +92,6 @@ ttf-jetbrains-mono-nerd
 tumbler
 uwsm
 vim
-waybar
 wget
 wireless_tools
 wireplumber
