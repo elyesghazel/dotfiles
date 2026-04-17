@@ -84,6 +84,7 @@ sudo
 swaync
 thunar
 thunar-volman
+thunderbird
 ttf-cascadia-code-nerd
 ttf-fira-code
 ttf-fira-sans
