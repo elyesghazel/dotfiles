@@ -1,17 +1,14 @@
 {
     "hyprland/workspaces": {
-        "format": "{icon}",
+        "format": "{id}",
         "on-scroll-down": "hyprctl dispatch workspace e+1",
         "on-scroll-up": "hyprctl dispatch workspace e-1",
-        "persistent-workspaces": { "*": 5 },
-        "cursor" : true,
-        "format-icons": {
-            "active": "󰮯",
-            "persistent": "",
-            "empty": ""
-         }
+        "persistent-workspaces": {
+            "DP-2": [1,2,3,4,5],
+            "HDMI-A-2": [6,7,8,9,10]
+        },
+        "cursor": true
     },
-
     "niri/workspaces": {
         "format": "{icon}",
         "cursor" : true,
