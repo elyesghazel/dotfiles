@@ -127,6 +127,19 @@
     padding: 0 2px;
     margin: 0 3px;
 }
+
+#workspaces button.active {
+    color: #33ccff;
+    font-weight: 800;
+    background: rgba(51, 204, 255, 0.15);
+    border-radius: 6px;
+    padding: 0 8px;
+}
+
+#workspaces button {
+    color: rgba(255, 255, 255, 0.4);
+    padding: 0 6px;
+}
 /* 
 #workspaces button.empty:not(.active) {
     color: @inactive;

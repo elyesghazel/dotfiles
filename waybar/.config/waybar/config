@@ -50,7 +50,7 @@
     "modules-right":  ["group/right", "group/right-hidden-top"],
 
     "hyprland/workspaces": {
-        "format": "{id} {icon}",
+        "format": "{id}",
         "on-scroll-down": "hyprctl dispatch workspace e+1",
         "on-scroll-up": "hyprctl dispatch workspace e-1",
         "persistent-workspaces": {
@@ -58,10 +58,6 @@
             "HDMI-A-2": [6,7,8,9,10]      
         },
         "cursor": true,
-	"format-icons": {
-            "active": "󰮯",
-            "default": ""
-    	}
     },
 
     "cpu": {
