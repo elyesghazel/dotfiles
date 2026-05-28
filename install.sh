@@ -1,24 +1,24 @@
 #!/bin/bash
 
-# 1. Pacman Pakete installieren
-echo "Installing official pacman packages"
-sudo pacman -S --needed - < ~/dotfiles/pacman_pkgs.txt
+DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 2. Insttall yay if not done yet.
+echo "==> Installing official packages"
+sudo pacman -S --needed - < "$DOTFILES/packages/pacman.txt"
+
+echo "==> Checking for yay"
 if ! command -v yay &> /dev/null; then
-    echo "Yay binary missing -> installing it..."
+    echo "yay not found — installing..."
     sudo pacman -S --needed git base-devel
     git clone https://aur.archlinux.org/yay.git /tmp/yay
     cd /tmp/yay && makepkg -si --noconfirm
-    cd ~/dotfiles
+    cd "$DOTFILES"
 fi
 
-# 3. Install AUR packages
-echo "Installing AUR packages.."
-yay -S --needed - < ~/dotfiles/aur_pkgs.txt
+echo "==> Installing AUR packages"
+yay -S --needed - < "$DOTFILES/packages/aur.txt"
 
-# 4. Linking
-echo "Linking with stow"
-stow fish kitty hypr waybar dunst swww
+echo "==> Linking configs with stow"
+cd "$DOTFILES"
+stow fish kitty hypr waybar dunst starship vicinae
 
-echo "Installation finished!"
+echo "Done!"

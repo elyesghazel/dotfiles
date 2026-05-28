@@ -1,17 +1,16 @@
-# 1. sync everything to github
 function dotsync
     set -l dotpath "$HOME/dotfiles"
-    set -l current_time (date "+%Y-%m-%d %H:%M")
     set -l host (uname -n)
+    set -l timestamp (date "+%Y-%m-%d %H:%M")
 
-    bash $dotpath/update_pkg.sh
+    bash $dotpath/packages/update.sh update
     cd $dotpath
     git add .
 
     if set -q argv[1]
-        git commit -m "auto-sync [$host]: $argv[1] – $current_time"
+        git commit -m "auto-sync [$host]: $argv[1] – $timestamp"
     else
-        git commit -m "auto-sync [$host]: $current_time"
+        git commit -m "auto-sync [$host]: $timestamp"
     end
 
     git push origin main

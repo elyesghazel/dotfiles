@@ -4,82 +4,92 @@
 ![WM](https://img.shields.io/badge/WM-Hyprland-89b4fa?style=for-the-badge&logo=hyprland)
 ![Shell](https://img.shields.io/badge/Shell-Fish-orange?style=for-the-badge&logo=fish)
 
-Welcome to my personal configuration files. Optimized for a clean workflow on **Arch Linux** (Hyprland) and **WSL** (CLI focus).
+![Screenshot](assets/image.png)
 
-## ![Screenshot](assets/image.png)
+Personal configuration files for Arch Linux (Hyprland) and WSL (CLI).
 
-## 📂 Structure
+---
 
-- **`hypr/`**: Modern & smooth Wayland compositor config.
-  - `conf/`: Modular configs for `binds.conf`, `decoration.conf`, `exec.conf`.
-- **`fish/`**: Fully modular shell setup with auto-loading functions.
-- **`starship/`**: Custom "Pill" theme with OS-detection & git status.
-- **`vicinae/`**: Configs for the Vicinae launcher & clipboard.
-- **`waybar/` & `dunst/`**: UI & Notification bars.
+## Structure
+
+```
+dotfiles/
+├── packages/
+│   ├── pacman.txt      official Arch packages
+│   ├── aur.txt         AUR packages
+│   └── update.sh       export / list / diff package lists
+├── fish/               shell — functions, completions, conf.d
+├── hypr/               Hyprland WM (Lua config, modular conf/)
+├── waybar/             status bar
+├── dunst/              notification daemon
+├── kitty/              terminal emulator
+├── starship/           shell prompt
+├── vicinae/            launcher & clipboard
+└── spicetify/          Spotify theming
+```
 
 ---
 
 ## Installation
 
-## ⚠️ Disclaimer
-
-> **Read before you run!** These dotfiles are tailored for my personal system. Some configurations contain hardcoded paths (e.g., monitor names like `DP-2` or specific home directory paths).
-
-> Please **review the config files** and adjust the paths to match your hardware and directory structure before installing.
-
-### On Arch Linux
-
-1. Clone the repo: `git clone https://github.com/elyesghazel/dotfiles.git ~/dotfiles`
-2. Run the installer:
-   ```bash
-   cd ~/dotfiles
-   chmod +x install.sh
-   ./install.sh
-   ```
-
-### On WSL (Windows Subsystem for Linux)
-
-1. Clone the repo: `git clone https://github.com/elyesghazel/dotfiles.git ~/dotfiles`
-2. Run the WSL installer:
+> **Note:** Review configs before running — some paths (monitor names, home dirs) are hardcoded for my machine.
 
 ```bash
+git clone https://github.com/elyesghazel/dotfiles.git ~/dotfiles
 cd ~/dotfiles
-chmod +x wsl-install.sh
-./wsl-install.sh
+chmod +x install.sh
+./install.sh
+```
 
+This installs all packages from `packages/pacman.txt` and `packages/aur.txt`, then links configs via `stow`.
+
+---
+
+## Package Management
+
+```bash
+packages/update.sh update   # export installed packages → lists
+packages/update.sh list     # show all packages in the lists
+packages/update.sh diff     # compare system vs lists
 ```
 
 ---
 
-## ⌨️ Keybinds (Highlights)
+## Keybinds
 
 | Keybind             | Action                      |
 | ------------------- | --------------------------- |
-| `SUPER + RETURN`    | Open Kitty Terminal         |
-| `ALT + SPACE`       | Toggle Vicinae Menu         |
-| `SUPER + S`         | Screenshot (Clipboard)      |
-| `SUPER + SHIFT + S` | Screenshot (Area selection) |
-| `SUPER + ALT + W`   | Randomize Wallpaper         |
-| `SUPER + B`         | Launch Zen Browser          |
-| `SUPER + V`         | Clipboard History           |
+| `SUPER + RETURN`    | Open Kitty terminal         |
+| `SUPER + TAB`       | Hyprview (smartgrid)        |
+| `ALT + SPACE`       | Vicinae launcher            |
+| `SUPER + S`         | Screenshot → clipboard      |
+| `SUPER + SHIFT + S` | Screenshot (area selection) |
+| `SUPER + ALT + W`   | Randomize wallpaper         |
+| `SUPER + B`         | Zen Browser                 |
+| `SUPER + V`         | Clipboard history           |
+| `SUPER + L`         | Lock screen                 |
 
 ---
 
-## Management Tools
+## Fish Functions
 
-- **`dotsync`**: Custom fish function. Automatically updates package lists (`pacman_pkgs.txt` & `aur_pkgs.txt`) and pushes all changes to GitHub.
-- **`hconf`**: Quick-edit Hyprland configs. Use `hconf binds` to jump straight into keybinds.
-- `npr` / `npu`: Quick project & GitHub repo creator.
-
----
-
-## 🎨 Themes & Fonts
-
-- **Font**: [JetBrainsMono Nerd Font](https://github.com/ryanoasis/nerd-fonts)
-- **Bar**: Waybar (Custom Pill Style)
-- **Notifications**: Dunst (with Papirus Icons)
-- **Colors**: Custom Blue/Mocha palette
+| Command    | Description                                      |
+| ---------- | ------------------------------------------------ |
+| `dotsync`  | Update package lists and push everything to git  |
+| `hconf`    | Quick-edit Hyprland config files                 |
+| `npr`      | Create a new local project                       |
+| `npu`      | Create a new GitHub repo                         |
+| `update_all` | Update pacman + AUR + other tools              |
 
 ---
 
-_Maintained with ❤️ by Elyes_
+## Theme
+
+- **Font**: JetBrainsMono Nerd Font
+- **Colors**: Catppuccin Mocha
+- **Bar**: Waybar (pill style)
+- **Notifications**: Dunst
+
+---
+
+_Maintained by Elyes_
