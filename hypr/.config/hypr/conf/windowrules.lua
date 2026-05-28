@@ -1,0 +1,6 @@
+-- https://wiki.hypr.land/Configuring/Basics/Window-Rules/
+-- hl.window_rule({
+--     name  = "example",
+--     match = { class = "^myapp$" },
+--     float = true,
+-- })
