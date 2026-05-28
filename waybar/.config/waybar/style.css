@@ -2,206 +2,209 @@
 
 * {
     font-family: 'JetBrainsMono Nerd Font';
-	border: none;
-	border-radius: 0;
-	min-height: 0;
-	margin: 0;
-	padding: 0;
-	text-shadow: none;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    text-shadow: none;
 }
 
 #waybar {
-    font-weight: 700;
     background: transparent;
-    font-size: 14px;
-    color: @fg;
+    color: rgba(255, 255, 255, 0.82);
 }
 
-/* global paddings */
-#temperature,
-#bluetooth, 
-#battery, 
-#memory,
-#mpris,
-#window,
-#cpu, 
-#load {
-    padding: 1px 7px;
-}
+/* ==============================
+   PILLS
+   ============================== */
 
-#network, 
-#tray {
-    padding: 1px 6px;
-}
-
-#backlight,
-#pulseaudio {
-    padding: 1px 8px;
-}
-
-#pulseaudio {
-    padding-left: 4px;
-}
-
-#backlight-slider,
-#pulseaudio-slider {
-    padding: 0 7px 0 2px;
-}
-
-#workspaces, 
-#bluetooth, 
-#battery, 
-#memory, 
-#temperature, 
-#cpu,
-#mpris,
-#window,
-#load {
-    margin: 0 3px;
-} 
-
-#right, 
 #left,
-#right-hidden-top, 
-#left-hidden-top {
-    padding: 2px 10px;
-    border-radius: 15px;
-    background: @module-bg;
+#right,
+#clock {
+    background: rgba(11, 11, 16, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
 }
 
-#right-hidden-top,
-#left-hidden-top {
-    padding: 0 12px;
+#left {
+    padding: 0 6px 0 2px;
 }
 
-#right, #left  {
-    margin: 0 8px;
+#right {
+    padding: 0 4px;
 }
 
 #clock {
-    background: @module-bg;
-    padding: 1px 18px;
-    border-radius: 15px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: rgba(255, 255, 255, 0.92);
+    padding: 0 18px;
 }
 
-#custom-ctlcenter {
-    margin-left: 7px;
-}
+/* ==============================
+   LEFT — launcher + workspaces + mpris
+   ============================== */
 
-#power-profiles-daemon,
 #custom-start {
-    margin-right: 7px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 14px;
+    padding: 0 10px 0 8px;
+    margin-right: 2px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-#cpu.critical,
-#memory.critical, 
-#battery.critical,
-#network.disabled,
-#temperature.critical, 
-#network.disconnected,
-#power-profiles-daemon.performance {
-	color: @red;
+#custom-start:hover {
+    color: rgba(255, 255, 255, 0.90);
 }
 
-#cpu.warning,
-#memory.warning, 
-#battery.warning,
-#temperature.warning {
-	color: @yellow;
-    background: unset;
-}
-
-#power-profiles-daemon.power-saver {
-    color: @green;
-}
-
-#custom-start,
-#custom-ctlcenter {
-    color: @blue;
+#workspaces {
+    padding: 0 4px;
 }
 
 #workspaces button {
-    color: @workspace-fg;
-    font-size: 14px;
-    border-radius: 100%;
-    padding: 0 2px;
-    margin: 0 3px;
+    color: rgba(255, 255, 255, 0.22);
+    padding: 0 6px;
+    margin: 0 1px;
+    border-radius: 6px;
+    min-width: 22px;
 }
 
 #workspaces button.active {
-    color: #33ccff;
-    font-weight: 800;
-    background: rgba(51, 204, 255, 0.15);
-    border-radius: 6px;
-    padding: 0 8px;
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.10);
 }
 
-#workspaces button {
-    color: rgba(255, 255, 255, 0.4);
-    padding: 0 6px;
+#workspaces button.occupied:not(.active) {
+    color: rgba(255, 255, 255, 0.48);
 }
-/* 
-#workspaces button.empty:not(.active) {
-    color: @inactive;
-} */
 
 #workspaces button:hover {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+#mpris {
+    color: rgba(255, 255, 255, 0.45);
+    padding: 0 10px;
+    margin-left: 2px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 12px;
 }
 
 #mpris.paused {
-    color: @inactive;
+    color: rgba(255, 255, 255, 0.20);
 }
 
-/* ---<==== Misc ====>--- */
+/* ==============================
+   RIGHT — system status
+   ============================== */
+
+#cpu,
+#memory {
+    padding: 0 9px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
+
+#cpu {
+    padding-left: 12px;
+}
+
+#memory {
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    padding-right: 12px;
+}
+
+#cpu.warning, #memory.warning { color: @yellow; }
+#cpu.critical, #memory.critical { color: @red; }
+
+#pulseaudio,
+#network,
+#bluetooth,
+#battery {
+    padding: 0 10px;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+#pulseaudio {
+    font-size: 14px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#pulseaudio.muted {
+    color: rgba(255, 255, 255, 0.28);
+}
+
+#network {
+    font-size: 14px;
+}
+
+#bluetooth {
+    font-size: 13px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#battery {
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    padding-right: 12px;
+}
+
+#battery.charging {
+    color: rgba(160, 220, 140, 0.90);
+}
+
+#battery.warning:not(.charging) {
+    color: @yellow;
+}
+
+#battery.critical:not(.charging) {
+    color: @red;
+}
+
+#network.disconnected {
+    color: @red;
+}
+
+#tray {
+    padding: 0 6px 0 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#tray * {
+    padding: 0 2px;
+}
+
+/* ==============================
+   Tooltips & menus
+   ============================== */
+
 tooltip {
-    border-radius: 15px;
-    background: @tooltip-bg;
+    border-radius: 8px;
+    background: rgba(11, 11, 16, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 tooltip label {
-    padding: 3px 10px;
-    color: @fg;
-	font-weight: 700;
+    padding: 5px 12px;
+    color: rgba(255, 255, 255, 0.82);
 }
 
-.popup * {
-    box-shadow: none;
-    outline: none;
-}
-
-menu, menu {
-    border-radius: 10px;
-    font-weight: 700;
-    color: @fg;
-    background: @tooltip-bg;
-}
-
-menu > *, menu > * {
-    padding: 3px 0px;
-}
-
-menu > *:hover, menu > *:hover{
-    border-radius: 10px;
-    background-color: @inactive;
-}
-
-/* Sliders */
-
-slider {
-    opacity: 0;
-    box-shadow: none;
-}
-
-trough {
-    min-width: 50px;
-    min-height: 5px;
+menu {
     border-radius: 8px;
-    background: @inactive;
+    background: rgba(11, 11, 16, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.82);
 }
 
-trough highlight {
-    border-radius: 8px;
-    background-color: @fg;
-    background-image: none;
+menu > * {
+    padding: 3px 2px;
+}
+
+menu > *:hover {
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
 }

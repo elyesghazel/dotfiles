@@ -1,21 +1,21 @@
 hl.config({
     decoration = {
-        rounding           = 15,
-        active_opacity     = 0.9,
-        inactive_opacity   = 0.75,
+        rounding           = 2,
+        active_opacity     = 0.98,
+        inactive_opacity   = 0.92,
         fullscreen_opacity = 1.0,
         blur = {
             enabled           = true,
-            size              = 7,
-            passes            = 3,
+            size              = 5,
+            passes            = 2,
             new_optimizations = true,
-            xray              = true,
+            xray              = false,
         },
         shadow = {
             enabled      = true,
-            range        = 20,
+            range        = 14,
             render_power = 3,
-            color        = "rgba(0, 0, 0, 0.5)",
+            color        = "rgba(0, 0, 0, 0.40)",
         },
     },
 })

@@ -1,0 +1,47 @@
+window {
+    background: none;
+}
+
+#box {
+    background-color: rgba(10, 10, 15, 0.88);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 6px 10px;
+    margin-bottom: 6px;
+}
+
+button, image {
+    background: none;
+    border-style: none;
+    box-shadow: none;
+}
+
+button {
+    background: transparent;
+    border-radius: 8px;
+    padding: 4px;
+    border: none;
+    margin: 0 2px;
+}
+
+button:hover {
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 8px;
+}
+
+button:focus {
+    box-shadow: none;
+}
+
+button:active,
+button:checked {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+#active {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.50);
+}
+
+image {
+    padding: 0;
+}

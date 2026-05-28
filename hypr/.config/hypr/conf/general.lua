@@ -1,11 +1,11 @@
 -- https://wiki.hypr.land/Configuring/Basics/Variables/
 hl.config({
     general = {
-        gaps_in  = 5,
-        gaps_out = 15,
+        gaps_in  = 6,
+        gaps_out = 10,
         col = {
-            active_border   = { colors = { "rgba(cba6f7ff)", "rgba(89b4faff)" }, angle = 45 },
-            inactive_border = "rgba(45475aaa)",
+            active_border   = "rgba(ffffffcc)",
+            inactive_border = "rgba(ffffff18)",
         },
         border_size      = 2,
         layout           = "dwindle",
