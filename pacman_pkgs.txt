@@ -1,4 +1,5 @@
 amd-ucode
+ardour
 aspell
 awww
 base
@@ -8,9 +9,13 @@ bluez
 bluez-utils
 brightnessctl
 btop
+calf
+carla
 chromium
 cliphist
 cmatrix
+code
+cowsay
 cups
 cups-pk-helper
 davfs2
@@ -33,6 +38,7 @@ github-cli
 grim
 grub
 gst-plugin-pipewire
+guitarix
 gum
 gvfs-mtp
 htop
@@ -67,6 +73,8 @@ noto-fonts-emoji
 nuspell
 nvidia-open-dkms
 nvtop
+nwg-dock-hyprland
+nwg-drawer
 nwg-look
 obsidian
 otf-font-awesome
@@ -84,14 +92,18 @@ prusa-slicer
 python-pillow
 qt5-wayland
 qt6-wayland
+quickshell
 rclone
+reflector
 rofi
 rsync
 screen
 sddm
+sl
 slurp
 smartmontools
 starship
+steam
 stow
 sudo
 swaync
