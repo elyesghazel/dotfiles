@@ -123,12 +123,14 @@ uwsm
 wget
 wireless_tools
 wireplumber
+wmctrl
 woff2-font-awesome
 wofi
 wpa_supplicant
 xclip
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
+xdotool
 xf86-video-intel
 xorg-server
 xorg-xinit
