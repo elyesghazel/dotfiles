@@ -83,6 +83,7 @@
         "format-wifi":        "󰤨",
         "format-ethernet":    "󰈀",
         "tooltip-format": "{essid}  {signalStrength}%\n{bandwidthUpBytes}  {bandwidthDownBytes}",
+        "on-click": "kitty gazelle",
         "menu": "on-click-right",
         "menu-file": "~/.config/waybar/context/network.xml",
         "menu-actions": {
@@ -96,13 +97,19 @@
     "bluetooth": {
         "format":                   "󰂲",
         "format-on":                "󰂯",
-        "format-connected":         "󰂱",
+        "format-connected":         "󰂱 {device_alias}",
         "tooltip-format":           "Bluetooth off",
         "tooltip-format-on":        "Bluetooth on",
         "tooltip-format-connected": "{device_alias}",
         "tooltip-format-enumerate-connected-battery": "{device_alias}  {device_battery_percentage}%",
         "on-click":       "~/.local/bin/toggle_bluetooth &",
-        "on-click-right": "hyprctl dispatch exec blueman-manager"
+        "menu": "on-click-right",
+        "menu-file": "~/.config/waybar/context/bluetooth.xml",
+        "menu-actions": {
+            "action-1": "bluetoothctl power on",
+            "action-2": "bluetoothctl power off",
+            "action-3": "kitty bluetui"
+        }
     },
 
     "battery": {
