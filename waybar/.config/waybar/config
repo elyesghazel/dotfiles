@@ -63,7 +63,7 @@
         "format":           "{icon}",
         "format-bluetooth": "{icon}",
         "on-click":         "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-        "on-click-right":   "hyprctl dispatch exec 'pavucontrol -t 4'",
+        "on-click-right":   "pavucontrol",
         "on-scroll-up":     "wpctl set-volume @DEFAULT_SINK@ 2%+",
         "on-scroll-down":   "wpctl set-volume @DEFAULT_SINK@ 2%-",
         "tooltip-format":   "{volume}%",
