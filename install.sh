@@ -17,8 +17,20 @@ fi
 echo "==> Installing AUR packages"
 yay -S --needed - < "$DOTFILES/packages/aur.txt"
 
+echo "==> Checking for Claude Code"
+if ! command -v claude &> /dev/null; then
+    echo "claude not found — installing..."
+    if command -v npm &> /dev/null; then
+        npm install -g @anthropic-ai/claude-code
+    else
+        echo "npm not found — installing nodejs first"
+        sudo pacman -S --needed nodejs npm
+        npm install -g @anthropic-ai/claude-code
+    fi
+fi
+
 echo "==> Linking configs with stow"
 cd "$DOTFILES"
-stow fish kitty hypr waybar dunst starship vicinae
+stow fish kitty hypr waybar dunst starship vicinae claude
 
 echo "Done!"
