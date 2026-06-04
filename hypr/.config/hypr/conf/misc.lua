@@ -5,4 +5,8 @@ hl.config({
         disable_splash_rendering = true,
         middle_click_paste       = false,
     },
+    xwayland = {
+        enabled           = true,
+        force_zero_scaling = true,
+    },
 })

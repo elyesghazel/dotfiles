@@ -12,6 +12,9 @@ hl.env("QT_AUTO_SCREEN_SCALE_FACTOR",      "1")
 -- GTK
 hl.env("GDK_SCALE", "1")
 
+-- Electron (Discord, VSCode, etc.) — run natively on Wayland
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+
 -- Mozilla
 hl.env("MOZ_ENABLE_WAYLAND", "1")
 
