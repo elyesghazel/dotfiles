@@ -87,6 +87,33 @@
     background: rgba(255, 255, 255, 0.07);
 }
 
+#taskbar {
+    padding: 0 4px;
+    margin-left: 2px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#taskbar button {
+    padding: 5px 5px;
+    margin: 6px 1px;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+#taskbar button:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+#taskbar button.active {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.92);
+}
+
+#taskbar button.minimized {
+    color: rgba(255, 255, 255, 0.28);
+}
+
 #mpris {
     color: rgba(255, 255, 255, 0.45);
     padding: 0 10px;
