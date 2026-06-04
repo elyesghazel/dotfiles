@@ -23,6 +23,7 @@ ffmpegthumbnailer
 fish
 flatpak
 fuse2
+ghostty
 git
 github-cli
 grim
