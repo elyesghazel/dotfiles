@@ -1,34 +1,38 @@
 format = """
-$directory\
-$git_branch\
-$git_status\
-$rust\
-$nodejs\
-$golang\
-$python\
-$php\
-$cmd_duration\
-$line_break\
-$character"""
+┌─$username$hostname$directory$git_branch$git_status$time$cmd_duration$status
+└─$character"""
 
 add_newline = false
 
+# ── user@host ──────────────────────────────────────────────────────────────────
+[username]
+style_user = "bold green"
+style_root = "bold red"
+format     = "\\[[$user@]($style_user)"
+show_always = true
+
+[hostname]
+ssh_only = false
+style    = "bold green"
+format   = "[$hostname\\]]($style)"
+
 # ── directory ──────────────────────────────────────────────────────────────────
 [directory]
-style            = "bold cyan"
-format           = "[$path]($style) "
-truncation_length = 1
-truncation_symbol = ""
+style                  = "bold cyan"
+format                 = "─\\[[$path]($style)\\]"
+truncation_length      = 5
+fish_style_pwd_dir_length = 1
 
 # ── git ────────────────────────────────────────────────────────────────────────
 [git_branch]
-symbol = "  "
+symbol = ""
 style  = "bold purple"
-format = "[on ](white)[$symbol$branch]($style) "
+format = "─\\[[$branch]($style) "
 
 [git_status]
-style      = "bold yellow"
-format     = '(\[[$all_status$ahead_behind]($style)\] )'
+style      = "bold green"
+format     = "[$all_status$ahead_behind]($style)\\]"
+up_to_date = "✓"
 modified   = "*"
 staged     = "+"
 untracked  = "?"
@@ -40,39 +44,26 @@ ahead      = "↑$count"
 behind     = "↓$count"
 diverged   = "↕"
 
-# ── languages ──────────────────────────────────────────────────────────────────
-[rust]
-symbol = "🦀 "
-style  = "bold red"
-format = "[is ]($style)[$symbol$version]($style) "
-
-[nodejs]
-symbol = " "
-style  = "bold green"
-format = "[via ](white)[$symbol$version]($style) "
-
-[golang]
-symbol = "🐹 "
-style  = "bold cyan"
-format = "[via ](white)[$symbol$version]($style) "
-
-[python]
-symbol = "🐍 "
-style  = "bold yellow"
-format = "[via ](white)[$symbol$version]($style) "
-
-[php]
-symbol = "🐘 "
-style  = "bold blue"
-format = "[via ](white)[$symbol$version]($style) "
+# ── time ───────────────────────────────────────────────────────────────────────
+[time]
+disabled    = false
+style       = "bold white"
+format      = "─\\[[$time]($style)\\]"
+time_format = "%H:%M:%S"
 
 # ── duration ───────────────────────────────────────────────────────────────────
 [cmd_duration]
 min_time = 2000
 style    = "bold yellow"
-format   = "[took ](white)[$duration]($style) "
+format   = "─\\[[$duration]($style)\\]"
 
-# ── prompt ─────────────────────────────────────────────────────────────────────
+# ── exit code ──────────────────────────────────────────────────────────────────
+[status]
+disabled = false
+style    = "bold red"
+format   = "─\\[[✘ $status]($style)\\]"
+
+# ── prompt character ───────────────────────────────────────────────────────────
 [character]
-success_symbol = "[>](bold green)"
-error_symbol   = "[>](bold red)"
+success_symbol = "[❯](bold green)"
+error_symbol   = "[❯](bold red)"
