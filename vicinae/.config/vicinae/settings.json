@@ -104,6 +104,12 @@
          }
       },
       "clipboard": {
+         "preferences": {
+            "encryption": false,
+            "eraseOnStartup": false,
+            "ignorePasswords": true,
+            "monitoring": true
+         },
          "entrypoints": {
             "history": {
                "alias": "cph"
