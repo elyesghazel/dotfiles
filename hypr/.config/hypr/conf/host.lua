@@ -7,7 +7,6 @@ hl.monitor({ output = "DP-2",     mode = "1920x1080@144", position = "1920x0", s
 
 hl.config({
     input = {
-        kb_layout     = "ch",
         sensitivity   = 0.3,
         accel_profile = "adaptive",
         touchpad = {
