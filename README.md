@@ -14,10 +14,11 @@ Personal configuration files for Arch Linux (Hyprland) and WSL (CLI).
 
 ```
 dotfiles/
+├── RUNNING.md          inventory of services/timers/autostart on this machine
 ├── packages/
 │   ├── pacman.txt      official Arch packages
 │   ├── aur.txt         AUR packages
-│   └── update.sh       export / list / diff package lists
+│   └── update.sh       export / list / diff packages, dump services
 ├── fish/               shell — functions, completions, conf.d
 ├── hypr/               Hyprland WM (Lua config, modular conf/)
 ├── waybar/             status bar

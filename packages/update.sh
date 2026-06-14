@@ -41,16 +41,36 @@ cmd_diff() {
     comm -13 <(pacman -Qqem | sort) <(sort "$AUR_LIST") | sed 's/^/    /'
 }
 
+cmd_services() {
+    # Dump the live "what runs on this machine" inventory.
+    # Pipe to a file to refresh RUNNING.md sections, or just eyeball it.
+    echo "── systemd: enabled system services ──"
+    systemctl list-unit-files --state=enabled --type=service --no-legend | sed 's/^/  /'
+    echo "── systemd: timers ──"
+    systemctl list-timers --no-legend --no-pager | awk '{print "  "$NF}'
+    echo "── systemd: enabled user units ──"
+    systemctl --user list-unit-files --state=enabled --no-legend | sed 's/^/  /'
+    echo "── Hyprland autostart (exec_cmd) ──"
+    grep -hoE 'exec_cmd\("[^"]+"' "$DOTFILES/hypr/.config/hypr/conf/autostart.lua" 2>/dev/null \
+        | sed 's/exec_cmd("/  /; s/"$//' | sort -u
+    echo "── XDG autostart ──"
+    ls -1 "$HOME/.config/autostart"/*.desktop 2>/dev/null | xargs -rn1 basename | sed 's/^/  /'
+    echo "── Anything failed ──"
+    systemctl --failed --no-legend; systemctl --user --failed --no-legend
+}
+
 case "${1:-help}" in
-    update) cmd_update ;;
-    list)   cmd_list   ;;
-    diff)   cmd_diff   ;;
+    update)   cmd_update   ;;
+    list)     cmd_list     ;;
+    diff)     cmd_diff     ;;
+    services) cmd_services ;;
     *)
         echo "Usage: packages/update.sh <command>"
         echo ""
         echo "Commands:"
-        echo "  update   Export currently installed packages to lists"
-        echo "  list     Show all packages in the lists (columnar)"
-        echo "  diff     Show differences between system and lists"
+        echo "  update     Export currently installed packages to lists"
+        echo "  list       Show all packages in the lists (columnar)"
+        echo "  diff       Show differences between system and lists"
+        echo "  services   Dump live services/timers/autostart (see RUNNING.md)"
         ;;
 esac
