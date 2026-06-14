@@ -37,6 +37,7 @@ SD card / MyCloud (4K)
 | `.local/bin/gopro-import` | **Primary flow.** SD card → rclone-copy 4K originals to MyCloud (dated folders) → NVENC 1080p → rsync to VPS → trigger Jellyfin scan → offer to wipe card. |
 | `.local/bin/gopro-stream` | Batch transcoder. `gopro-stream <SRC│remote:path> <DST>`. SRC can be a local dir or an rclone remote (pulls each file to temp, encodes, deletes temp — no need to hold all originals locally). Used for the one-time backfill of clips already on MyCloud. |
 | `.local/bin/gopro-scan` | POSTs to Jellyfin `/Library/Refresh` so new uploads appear without a manual rescan. `gopro-import` calls this automatically; run it by hand after a manual backfill rsync. |
+| `.local/bin/gopro-get` | Pull the **original 4K** back from MyCloud by name/pattern, e.g. `gopro-get GX010598` or `gopro-get wheelie` → lands in `~/Downloads`. For when a clip you found in Jellyfin is worth editing at full quality. |
 | `.config/gopro.conf.example` | Settings template → copy to `~/.config/gopro.conf` (real file is git-ignored; holds the Jellyfin API key). |
 | `jellyfin-server-setup.md` | Runbook for the VPS side (Docker Jellyfin behind Traefik). |
 
@@ -72,6 +73,20 @@ gopro-scan                   # nudge Jellyfin to index them
 Both `gopro-stream` and `rsync` are resumable (skip already-done files), so a killed
 run just continues. Run the backfill in `tmux` — it can take a couple of hours
 (download-bound by MyCloud's WebDAV, not your fibre).
+
+### Getting a clip back out (editing / TikTok)
+
+Jellyfin shows the 1080p copies; the filename matches the original 1:1.
+
+- **TikTok / social:** just hit **Download** in Jellyfin (web ⋮ menu, or the app) —
+  1080p is more than TikTok keeps anyway. No need to touch MyCloud. (Requires the
+  user's *"Allow media downloads"* permission in Dashboard → Users.)
+- **Full-quality editing:** grab the 4K original from MyCloud by name:
+  ```bash
+  gopro-get GX010598          # exact-ish name seen in Jellyfin → ~/Downloads
+  gopro-get wheelie           # fuzzy match on the filename
+  gopro-get GX0106 --all --to ~/edits
+  ```
 
 ## Notes / gotchas
 

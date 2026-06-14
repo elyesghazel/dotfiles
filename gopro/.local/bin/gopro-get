@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# gopro-get — pull the original 4K GoPro file from MyCloud by name/pattern.
+# Use when a 1080p clip you found in Jellyfin is worth editing at full quality.
+# (For TikTok/social, the 1080p Jellyfin download is usually enough — skip this.)
+#
+# Usage:
+#   gopro-get <name|pattern> [--to DIR] [--all]
+#
+# Examples:
+#   gopro-get GX010598            # exact-ish clip name from Jellyfin
+#   gopro-get wheelie             # fuzzy — matches "luan wheelie flyby.MP4"
+#   gopro-get GX0106 --all --to ~/edits
+set -euo pipefail
+
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/gopro.conf"
+[[ -f "$CONF" ]] && source "$CONF"
+: "${ARCHIVE:?set ARCHIVE in $CONF}"
+command -v rclone >/dev/null || { echo "rclone not installed"; exit 1; }
+
+DEST="$HOME/Downloads"; ALL=0; ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --to)  DEST="$2"; shift 2;;
+    --all) ALL=1; shift;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0;;
+    *) ARGS+=("$1"); shift;;
+  esac
+done
+[[ ${#ARGS[@]} -eq 0 ]] && { echo "usage: gopro-get <name|pattern> [--to DIR] [--all]"; exit 1; }
+pat="${ARGS[*]}"
+
+echo ">> searching $ARCHIVE for '$pat' ..."
+mapfile -t hits < <(rclone lsf -R --files-only "$ARCHIVE" | grep -iE '\.(mp4|mov)$' | grep -iF "$pat" || true)
+n=${#hits[@]}
+
+if [[ $n -eq 0 ]]; then
+  echo "no originals matching '$pat'"; exit 1
+fi
+if [[ $n -gt 1 && $ALL -eq 0 ]]; then
+  echo "$n matches — narrow the pattern, or re-run with --all:"
+  printf '   %s\n' "${hits[@]}"; exit 1
+fi
+
+mkdir -p "$DEST"
+for rel in "${hits[@]}"; do
+  echo ">> $rel  ->  $DEST/"
+  rclone copy --progress "$ARCHIVE/$rel" "$DEST/"
+done
+echo "done -> $DEST"
