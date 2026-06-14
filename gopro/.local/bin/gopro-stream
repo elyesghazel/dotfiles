@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# gopro-stream — batch-transcode fat GoPro originals into small, streamable copies.
+# Full GPU pipeline on Nvidia (RTX 3060 / NVENC): hw-decode -> scale -> hw-encode.
+# Originals are NEVER touched; output mirrors the source tree.
+#
+# SRC may be a local dir OR an rclone remote ("name:path"). For a remote, each
+# original is pulled to a temp file, transcoded, then deleted — so no need for
+# enough local disk to hold all the originals at once.
+#
+# Usage:
+#   gopro-stream <SRC|remote:path> <DST_DIR> [--res 1080] [--codec h264|hevc] [--dry-run]
+#
+# Examples:
+#   gopro-stream /mnt/mycloud/gopro ~/gopro-stream
+#   gopro-stream "mycloud:Go Pro"  ~/gopro-stream          # straight from MyCloud
+#
+# Then upload DST_DIR to the VPS and point Jellyfin at it.
+
+set -euo pipefail
+
+RES=1080
+CODEC=h264          # h264 = max device compatibility; hevc = ~40% smaller files
+DRYRUN=0
+
+SRC=""; DST=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --res)    RES="$2"; shift 2;;
+    --codec)  CODEC="$2"; shift 2;;
+    --dry-run) DRYRUN=1; shift;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0;;
+    *) if [[ -z "$SRC" ]]; then SRC="$1"; elif [[ -z "$DST" ]]; then DST="$1"; fi; shift;;
+  esac
+done
+
+[[ -z "$SRC" || -z "$DST" ]] && { echo "usage: gopro-stream <SRC|remote:path> <DST_DIR> [--res N] [--codec h264|hevc] [--dry-run]"; exit 1; }
+command -v ffmpeg >/dev/null || { echo "ffmpeg not installed"; exit 1; }
+
+# SRC is a local dir, or an rclone remote if it looks like "name:path".
+REMOTE=0
+if [[ "$SRC" == *:* ]]; then
+  REMOTE=1
+  command -v rclone >/dev/null || { echo "rclone not installed (needed for a remote source)"; exit 1; }
+else
+  [[ -d "$SRC" ]] || { echo "SRC not found: $SRC"; exit 1; }
+fi
+
+case "$CODEC" in
+  h264) ENC=h264_nvenc;;
+  hevc) ENC=hevc_nvenc;;
+  *) echo "codec must be h264 or hevc"; exit 1;;
+esac
+
+mkdir -p "$DST"
+total=0; done=0; skipped=0; saved_in=0; saved_out=0
+
+# Build the clip list as paths relative to SRC (local find, or remote rclone lsf).
+if [[ $REMOTE -eq 1 ]]; then
+  mapfile -t RELS < <(rclone lsf -R --files-only "$SRC" | grep -iE '\.(mp4|mov)$' || true)
+  TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+else
+  RELS=()
+  while IFS= read -r -d '' f; do RELS+=("${f#"$SRC"/}"); done \
+    < <(find "$SRC" -type f \( -iname '*.mp4' -o -iname '*.mov' \) -print0)
+fi
+total=${#RELS[@]}
+echo ">> $total source clips found under $SRC"
+echo ">> encoder=$ENC  res=${RES}p  output=$DST"
+echo
+
+for rel in "${RELS[@]}"; do
+  out="$DST/${rel%.*}.mp4"                    # always .mp4 container
+  mkdir -p "$(dirname "$out")"
+
+  if [[ -s "$out" ]]; then
+    skipped=$((skipped+1)); echo "skip  (exists)  $rel"; continue
+  fi
+  if [[ $DRYRUN -eq 1 ]]; then echo "enc   $rel"; continue; fi
+
+  # Resolve a local input file; pull from the remote to temp if needed.
+  if [[ $REMOTE -eq 1 ]]; then
+    in="$TMP/$(basename "$rel")"
+    printf 'pull  %s ... ' "$rel"
+    if ! rclone copyto "$SRC/$rel" "$in" 2>/dev/null; then echo "DOWNLOAD FAILED"; continue; fi
+    echo "ok"
+  else
+    in="$SRC/$rel"
+  fi
+
+  insize=$(stat -c%s "$in")
+  printf 'enc   %s  (%s)\n' "$rel" "$(numfmt --to=iec "$insize")"
+
+  # Full-GPU: decode on NVDEC, scale on GPU, encode on NVENC.
+  # VBR ~8 Mbps avg, capped at 12 Mbps — good for high-motion riding footage.
+  if ffmpeg -hide_banner -loglevel error -stats -y \
+       -hwaccel cuda -hwaccel_output_format cuda \
+       -i "$in" \
+       -vf "scale_cuda=-2:${RES}" \
+       -c:v "$ENC" -preset p5 -tune hq -rc vbr -cq 23 \
+       -b:v 8M -maxrate 12M -bufsize 16M \
+       -c:a aac -b:a 128k \
+       -movflags +faststart \
+       "$out"; then
+    outsize=$(stat -c%s "$out")
+    saved_in=$((saved_in+insize)); saved_out=$((saved_out+outsize)); done=$((done+1))
+    printf '      -> %s  (%s, %d%% of original)\n' \
+      "$(basename "$out")" "$(numfmt --to=iec "$outsize")" $(( outsize*100/insize ))
+  else
+    echo "      !! FAILED, removing partial output"; rm -f "$out"
+  fi
+
+  [[ $REMOTE -eq 1 ]] && rm -f "$in"          # free temp space right away
+done
+
+echo
+echo "== done: $done transcoded, $skipped skipped, of $total =="
+if [[ $saved_in -gt 0 ]]; then
+  echo "   originals: $(numfmt --to=iec "$saved_in")  ->  streamable: $(numfmt --to=iec "$saved_out")"
+fi

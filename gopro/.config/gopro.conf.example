@@ -1,0 +1,22 @@
+# gopro.conf — settings for gopro-import / gopro-stream / gopro-scan
+# Copy to ~/.config/gopro.conf and fill in. The real file is git-ignored (secrets).
+
+# Full-quality originals. An rclone remote ("name:path") uses rclone; a plain path
+# uses a local mount. MyCloud is WebDAV via an rclone remote named "mycloud".
+#   rclone config create mycloud webdav url=https://webdav.mycloud.ch \
+#     vendor=other user='you@example.com' pass='YOUR_WEBDAV_PASSWORD' --obscure
+ARCHIVE="mycloud:Go Pro"
+
+# Local scratch dir where 1080p streamable copies are made before upload.
+STAGING="$HOME/gopro-stream"
+
+# Where streamable copies are pushed (the VPS dir Jellyfin reads). SSH alias:path.
+VPS_TARGET="server:/srv/media/gopro"
+
+# Transcode settings
+RES=1080            # streaming resolution
+CODEC=h264          # h264 = plays on everything; hevc = ~40% smaller
+
+# Jellyfin auto-scan after upload (optional). Key: Dashboard → API Keys.
+JELLYFIN_URL="https://media.example.com"
+JELLYFIN_KEY="PUT_YOUR_JELLYFIN_API_KEY_HERE"

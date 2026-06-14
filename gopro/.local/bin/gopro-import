@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# gopro-import — one-command workflow for a fresh GoPro microSD card.
+#
+#   1. archive 4K originals  ->  MyCloud ($ARCHIVE/<clip-date>/)   [full quality, kept]
+#   2. transcode to 1080p    ->  local $STAGING/<clip-date>/        [RTX 3060 / NVENC]
+#   3. push streamable copies ->  the VPS ($VPS_TARGET)            [Jellyfin watches]
+#   4. summary + optional SD wipe (only after originals are safely archived)
+#
+# Usage:
+#   gopro-import                 # auto-detects an inserted SD card
+#   gopro-import /run/media/elyes/GoPro   # or point at it explicitly
+#   gopro-import --no-upload     # archive + transcode, skip the VPS push
+#
+# Settings come from ~/.config/gopro.conf
+
+set -uo pipefail
+
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/gopro.conf"
+[[ -f "$CONF" ]] && source "$CONF" || { echo "missing $CONF"; exit 1; }
+: "${ARCHIVE:?}" "${STAGING:?}" "${VPS_TARGET:?}" "${RES:=1080}" "${CODEC:=h264}"
+
+UPLOAD=1; SRC=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-upload) UPLOAD=0; shift;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0;;
+    *) SRC="$1"; shift;;
+  esac
+done
+
+# --- locate the SD card -------------------------------------------------------
+if [[ -z "$SRC" ]]; then
+  # GoPro stores clips under DCIM/. Find the first removable mount that has one.
+  for m in /run/media/"$USER"/* /media/"$USER"/*; do
+    [[ -d "$m/DCIM" ]] && { SRC="$m"; break; }
+  done
+fi
+[[ -z "$SRC" || ! -d "$SRC" ]] && { echo "No SD card found. Pass the path, e.g. gopro-import /run/media/$USER/GoPro"; exit 1; }
+[[ -d "$SRC/DCIM" ]] && SRC="$SRC/DCIM"
+echo ">> source : $SRC"
+echo ">> archive: $ARCHIVE   (4K originals)"
+echo ">> stream : $STAGING -> $VPS_TARGET"
+
+case "$CODEC" in h264) ENC=h264_nvenc;; hevc) ENC=hevc_nvenc;; *) echo "bad codec"; exit 1;; esac
+
+# GoPro real clips are GX*/GH*.MP4 (skip .LRV proxies and .THM thumbnails).
+mapfile -d '' FILES < <(find "$SRC" -type f \( -iname 'G[XH]*.mp4' -o -iname '*.mp4' \) -print0)
+[[ ${#FILES[@]} -eq 0 ]] && { echo "No .mp4 clips under $SRC"; exit 0; }
+echo ">> ${#FILES[@]} clips on card"; echo
+
+arch_ok=0; enc_ok=0; skip=0; fail=0
+for in in "${FILES[@]}"; do
+  base="$(basename "$in")"
+  d="$(date -d "@$(stat -c%Y "$in")" +%F)"          # clip date -> YYYY-MM-DD folder
+  sdir="$STAGING/$d"
+  mkdir -p "$sdir"
+
+  # 1) archive original — rclone remote ("name:path") or local mount; both skip dupes
+  if [[ "$ARCHIVE" == *:* ]]; then
+    archive_cmd=(rclone copy --ignore-existing "$in" "$ARCHIVE/$d/")
+  else
+    mkdir -p "$ARCHIVE/$d"
+    archive_cmd=(rsync -a --ignore-existing "$in" "$ARCHIVE/$d/")
+  fi
+  if "${archive_cmd[@]}"; then arch_ok=$((arch_ok+1)); else
+    echo "!! archive FAILED: $base"; fail=$((fail+1)); continue; fi
+
+  # 2) transcode to streamable 1080p (skip if done)
+  out="$sdir/${base%.*}.mp4"
+  if [[ -s "$out" ]]; then echo "skip  $d/$base (already transcoded)"; skip=$((skip+1)); continue; fi
+  printf 'enc   %s/%s (%s)\n' "$d" "$base" "$(numfmt --to=iec "$(stat -c%s "$in")")"
+  if ffmpeg -hide_banner -loglevel error -stats -y \
+       -hwaccel cuda -hwaccel_output_format cuda -i "$in" \
+       -vf "scale_cuda=-2:${RES}" \
+       -c:v "$ENC" -preset p5 -tune hq -rc vbr -cq 23 -b:v 8M -maxrate 12M -bufsize 16M \
+       -c:a aac -b:a 128k -movflags +faststart "$out"; then
+    enc_ok=$((enc_ok+1))
+  else
+    echo "!! transcode FAILED: $base"; rm -f "$out"; fail=$((fail+1))
+  fi
+done
+
+echo
+echo "== archived $arch_ok  | transcoded $enc_ok  | skipped $skip  | failed $fail =="
+
+# 3) push streamable copies to the VPS, then tell Jellyfin to rescan
+if [[ $UPLOAD -eq 1 && $fail -eq 0 ]]; then
+  echo ">> uploading streamable copies to VPS..."
+  rsync -avP "$STAGING/" "$VPS_TARGET/"
+  if [[ -n "${JELLYFIN_URL:-}" && -n "${JELLYFIN_KEY:-}" ]]; then
+    echo ">> refreshing Jellyfin library..."
+    curl -fsS -X POST "$JELLYFIN_URL/Library/Refresh" -H "X-Emby-Token: $JELLYFIN_KEY" \
+      && echo "   scan triggered" || echo "   (scan trigger failed — rescan manually)"
+  fi
+elif [[ $fail -ne 0 ]]; then
+  echo "!! $fail failure(s) — NOT uploading and NOT touching the card. Investigate first."
+  exit 1
+fi
+
+# 4) offer to wipe the card (only reached if nothing failed)
+echo
+read -rp "Originals archived to MyCloud. Wipe the SD card now? [y/N] " ans
+if [[ "$ans" == [yY] ]]; then
+  find "$SRC" -type f -iname '*.mp4' -delete && echo "card cleared." || echo "wipe failed."
+else
+  echo "card left untouched."
+fi

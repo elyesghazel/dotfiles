@@ -26,8 +26,11 @@ dotfiles/
 ├── kitty/              terminal emulator
 ├── starship/           shell prompt
 ├── vicinae/            launcher & clipboard
-└── spicetify/          Spotify theming
+├── spicetify/          Spotify theming
+└── gopro/              GoPro → Jellyfin streaming pipeline (NVENC transcode + scripts)
 ```
+
+See [`gopro/README.md`](gopro/README.md) for the full GoPro → Jellyfin workflow.
 
 ---
 

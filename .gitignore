@@ -4,3 +4,6 @@ fish/.config/fish/functions/sc_private.fish
 
 # host-specific hardware config
 hypr/.config/hypr/conf/host.lua
+
+# gopro: real config holds the Jellyfin API key — only the .example is tracked
+gopro/.config/gopro.conf

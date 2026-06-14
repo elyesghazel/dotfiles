@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# gopro-scan — tell Jellyfin to rescan its libraries.
+# Run after a manual backfill upload (gopro-import does this automatically).
+set -euo pipefail
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/gopro.conf"
+[[ -f "$CONF" ]] && source "$CONF"
+: "${JELLYFIN_URL:?set JELLYFIN_URL in $CONF}" "${JELLYFIN_KEY:?set JELLYFIN_KEY in $CONF}"
+if curl -fsS -X POST "$JELLYFIN_URL/Library/Refresh" -H "X-Emby-Token: $JELLYFIN_KEY"; then
+  echo "Jellyfin library scan triggered."
+else
+  echo "scan trigger failed"; exit 1
+fi
