@@ -11,7 +11,7 @@ abbr -a cdedu "cd $EDU_PATH"
 abbr -a cdplay "cd $PLAY_PATH"
 
 
-nvm use latest
+nvm use --silent latest
 
 set -gx DOCKER_CONFIG $HOME/.docker-clean
 set -gx PATH (string match -v '*Rancher Desktop*' $PATH)

@@ -1,6 +1,8 @@
 # sensitive / private fish scripts
 fish/.config/fish/functions/sc_corproot.fish
 fish/.config/fish/functions/sc_private.fish
+fish/.config/fish/functions/claude-sc.fish
+fish/.config/fish/functions/claude-sc-login.fish
 
 # host-specific hardware config
 hypr/.config/hypr/conf/host.lua
