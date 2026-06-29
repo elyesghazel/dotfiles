@@ -4,6 +4,7 @@ aspell
 awww
 base
 base-devel
+bind
 blueman
 bluetui
 bluez
@@ -50,12 +51,14 @@ hyprlock
 hyprpaper
 intel-ucode
 iwd
+jdk21-openjdk
 kamera
 kicad
 kitty
+lazygit
+lib32-vulkan-intel
 libadwaita
 libinput-tools
-libva-nvidia-driver
 linux
 linux-firmware
 linux-headers
@@ -74,7 +77,6 @@ network-manager-applet
 networkmanager
 noto-fonts-emoji
 nuspell
-nvidia-open-dkms
 nvtop
 nwg-dock-hyprland
 nwg-drawer
@@ -114,6 +116,7 @@ system-config-printer
 thunar
 thunar-volman
 thunderbird
+tmux
 ttf-cascadia-code-nerd
 ttf-fira-code
 ttf-fira-sans
@@ -123,6 +126,7 @@ tuned
 tuned-ppd
 usbutils
 uwsm
+vulkan-intel
 wget
 wireless_tools
 wireplumber
@@ -141,5 +145,6 @@ xournalpp
 yazi
 zathura
 zathura-pdf-mupdf
+zed
 zoxide
 zram-generator

@@ -6,7 +6,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
     hl.exec_cmd("vicinae server")
     hl.exec_cmd("nm-applet")
-
     -- wallpaper & display
     hl.exec_cmd("awww-daemon")
     hl.exec_cmd("hyprctl dispatch focusmonitor DP-2")
@@ -21,4 +20,5 @@ hl.on("hyprland.start", function()
 
     hl.exec_cmd("hypridle")
     hl.exec_cmd("quickshell -p /home/elyes/apps/qs-hyprview")
+    hl.exec_cmd("sudo rc-service claude-cowork start")
 end)

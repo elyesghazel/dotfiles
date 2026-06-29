@@ -18,5 +18,5 @@ RES=1080            # streaming resolution
 CODEC=h264          # h264 = plays on everything; hevc = ~40% smaller
 
 # Jellyfin auto-scan after upload (optional). Key: Dashboard → API Keys.
-JELLYFIN_URL="https://media.example.com"
-JELLYFIN_KEY="PUT_YOUR_JELLYFIN_API_KEY_HERE"
+JELLYFIN_URL="https://media.elyesghazel.ch"
+JELLYFIN_KEY="pastekey"

@@ -33,3 +33,7 @@ if not string match -q -- $PNPM_HOME $PATH
     set -gx PATH "$PNPM_HOME" $PATH
 end
 export PATH="$HOME/.local/bin:$PATH"
+
+# java
+set -gx JAVA_HOME /usr/lib/jvm/java-21-openjdk
+fish_add_path $JAVA_HOME/bin
