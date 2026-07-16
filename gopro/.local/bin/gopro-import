@@ -69,9 +69,14 @@ for in in "${FILES[@]}"; do
   out="$sdir/${base%.*}.mp4"
   if [[ -s "$out" ]]; then echo "skip  $d/$base (already transcoded)"; skip=$((skip+1)); continue; fi
   printf 'enc   %s/%s (%s)\n' "$d" "$base" "$(numfmt --to=iec "$(stat -c%s "$in")")"
+  # NOTE: decode on GPU but hand frames back to the CPU (no -hwaccel_output_format
+  # cuda, CPU scale filter). This lets ffmpeg auto-apply the clip's rotation flag
+  # -- GoPros mounted upside down record rotation=-180 metadata rather than flipping
+  # pixels. Keeping frames on the GPU (scale_cuda) silently skips that, baking the
+  # video in upside down. Still NVENC-encoded, still ~3x realtime on the 3060.
   if ffmpeg -hide_banner -loglevel error -stats -y \
-       -hwaccel cuda -hwaccel_output_format cuda -i "$in" \
-       -vf "scale_cuda=-2:${RES}" \
+       -hwaccel cuda -i "$in" \
+       -vf "scale=-2:${RES}" \
        -c:v "$ENC" -preset p5 -tune hq -rc vbr -cq 23 -b:v 8M -maxrate 12M -bufsize 16M \
        -c:a aac -b:a 128k -movflags +faststart "$out"; then
     enc_ok=$((enc_ok+1))
