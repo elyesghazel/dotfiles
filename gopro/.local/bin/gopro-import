@@ -97,6 +97,16 @@ if [[ $UPLOAD -eq 1 && $fail -eq 0 ]]; then
     curl -fsS -X POST "$JELLYFIN_URL/Library/Refresh" -H "X-Emby-Token: $JELLYFIN_KEY" \
       && echo "   scan triggered" || echo "   (scan trigger failed — rescan manually)"
   fi
+
+  # Also surface the 1080p copies in Cloudreve (files.elyesghazel.ch) so you can
+  # grab/edit/share them from the phone without the PC. The server mirrors them
+  # straight into Cloudreve over the docker network — dodging Cloudflare's 100MB
+  # upload cap. Non-fatal: the 4K archive and Jellyfin stream already succeeded.
+  if [[ "${CLOUDREVE_SYNC:-0}" == "1" ]]; then
+    echo ">> mirroring 1080p copies into Cloudreve..."
+    ssh "${VPS_TARGET%%:*}" "${CLOUDREVE_MIRROR:-/opt/docker/gopro-share/cloudreve-mirror.sh}" \
+      && echo "   available in Cloudreve" || echo "   (Cloudreve mirror failed — clips are still on Jellyfin)"
+  fi
 elif [[ $fail -ne 0 ]]; then
   echo "!! $fail failure(s) — NOT uploading and NOT touching the card. Investigate first."
   exit 1

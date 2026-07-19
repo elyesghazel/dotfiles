@@ -20,3 +20,15 @@ CODEC=h264          # h264 = plays on everything; hevc = ~40% smaller
 # Jellyfin auto-scan after upload (optional). Key: Dashboard → API Keys.
 JELLYFIN_URL="https://media.elyesghazel.ch"
 JELLYFIN_KEY="pastekey"
+
+# --- gopro-share (private download links) ---
+# Defaults are fine; uncomment to override.
+# SHARE_HOST="share.example.com"         # subdomain serving the links
+# SHARE_DIR="/srv/media/gopro-share"     # dir on the server behind that subdomain
+EXPIRE_DAYS=14                           # links auto-expire after this many days
+
+# --- Cloudreve mirror (optional; browse/grab clips on the phone) ---
+# After each import, mirror the 1080p copies into Cloudreve so they show up in its
+# app. Runs server-side (see gopro-share-server.md) to dodge Cloudflare's 100MB cap.
+CLOUDREVE_SYNC=0                         # set to 1 to enable
+# CLOUDREVE_MIRROR="/opt/docker/gopro-share/cloudreve-mirror.sh"  # server-side script
