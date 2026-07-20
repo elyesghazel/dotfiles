@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
     *) ARGS+=("$1"); shift;;
   esac
 done
-[[ ${#ARGS[@]} -eq 0 ]] && { echo "usage: gopro-share <name|pattern> [--all] [--4k] [--days N]"; exit 1; }
+[[ ${#ARGS[@]} -eq 0 ]] && { echo "usage: gopro share <name|pattern> [--all] [--4k] [--days N]"; exit 1; }
 pat="${ARGS[*]}"
 
 # ---------------------------------------------------------------------------

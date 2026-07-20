@@ -35,7 +35,7 @@ if [[ -z "$SRC" ]]; then
     [[ -d "$m/DCIM" ]] && { SRC="$m"; break; }
   done
 fi
-[[ -z "$SRC" || ! -d "$SRC" ]] && { echo "No SD card found. Pass the path, e.g. gopro-import /run/media/$USER/GoPro"; exit 1; }
+[[ -z "$SRC" || ! -d "$SRC" ]] && { echo "No SD card found. Pass the path, e.g. gopro import /run/media/$USER/GoPro"; exit 1; }
 [[ -d "$SRC/DCIM" ]] && SRC="$SRC/DCIM"
 echo ">> source : $SRC"
 echo ">> archive: $ARCHIVE   (4K originals)"

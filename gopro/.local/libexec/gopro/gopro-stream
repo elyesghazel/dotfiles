@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -z "$SRC" || -z "$DST" ]] && { echo "usage: gopro-stream <SRC|remote:path> <DST_DIR> [--res N] [--codec h264|hevc] [--dry-run]"; exit 1; }
+[[ -z "$SRC" || -z "$DST" ]] && { echo "usage: gopro stream <SRC|remote:path> <DST_DIR> [--res N] [--codec h264|hevc] [--dry-run]"; exit 1; }
 command -v ffmpeg >/dev/null || { echo "ffmpeg not installed"; exit 1; }
 
 # SRC is a local dir, or an rclone remote if it looks like "name:path".

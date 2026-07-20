@@ -21,7 +21,7 @@ the VPS (`/srv/media/gopro`):
 |-----------|-----|-----|
 | **Jellyfin** | `media.elyesghazel.ch` | browsing / watching |
 | **Cloudreve** | `files.elyesghazel.ch` → `GoPro/` | grabbing & editing on the phone |
-| **gopro-share** | `share.elyesghazel.ch/<token>/…` | sending one clip to someone (no account) |
+| **`gopro share`** | `share.elyesghazel.ch/<token>/…` | sending one clip to someone (no account) |
 
 The slowness was never the storage location — it was **download-everything delivery
 + huge raw bitrate**. Fix = transcode to a small, seek-friendly file and serve it
@@ -41,16 +41,26 @@ SD card / MyCloud (4K)
 
 ## Components
 
-| File | What it does |
-|------|--------------|
-| `.local/bin/gopro-import` | **Primary flow.** SD card → rclone-copy 4K originals to MyCloud (dated folders) → NVENC 1080p → rsync to VPS → trigger Jellyfin scan → offer to wipe card. |
-| `.local/bin/gopro-stream` | Batch transcoder. `gopro-stream <SRC│remote:path> <DST>`. SRC can be a local dir or an rclone remote (pulls each file to temp, encodes, deletes temp — no need to hold all originals locally). Used for the one-time backfill of clips already on MyCloud. |
-| `.local/bin/gopro-scan` | POSTs to Jellyfin `/Library/Refresh` so new uploads appear without a manual rescan. `gopro-import` calls this automatically; run it by hand after a manual backfill rsync. |
-| `.local/bin/gopro-get` | Pull the **original 4K** back from MyCloud by name/pattern, e.g. `gopro-get GX010598` or `gopro-get wheelie` → lands in `~/Downloads`. For when a clip you found in Jellyfin is worth editing at full quality. |
-| `.local/bin/gopro-share` | Hand a clip to someone via a private link. Finds the 1080p copy on the server, hard-links it under a random token, prints `https://share.elyesghazel.ch/<token>/<clip>` — no account, auto-expires. `--4k` serves the original instead. |
-| `.config/gopro.conf.example` | Settings template → copy to `~/.config/gopro.conf` (real file is git-ignored; holds the Jellyfin API key). |
-| `jellyfin-server-setup.md` | Runbook for the VPS side (Docker Jellyfin behind Traefik). |
-| `gopro-share-server.md` | Runbook for the VPS side of sharing (nginx link server + Cloudreve mirror). |
+One command, git-style: **`gopro <subcommand>`**. The dispatcher lives at
+`.local/bin/gopro` (the only thing in `PATH`); the workers it calls sit in
+`.local/libexec/gopro/` (out of `PATH`, so there's no `gopro-*` clutter).
+
+| `gopro …` | What it does |
+|-----------|--------------|
+| `import [PATH]` | **Primary flow.** SD card → rclone-copy 4K originals to MyCloud (dated folders) → NVENC 1080p → rsync to VPS → trigger Jellyfin scan → mirror to Cloudreve → offer to wipe card. |
+| `share <name> [--4k] [--days N] [--all]` | Hand a clip to someone via a private link. Hard-links the 1080p copy on the server under a random token, prints `https://share.elyesghazel.ch/<token>/<clip>` — no account, auto-expires. `--4k` serves the original instead. |
+| `pull <name> [--all] [--to DIR]` | Copy the **1080p** copy from the server to `~/edits` for cutting/censoring before posting. (For 4K use `get`.) |
+| `get <name> [--to DIR] [--all]` | Pull the **original 4K** back from MyCloud by name/pattern → `~/Downloads`. For full-quality editing. |
+| `stream <SRC│remote:path> <DST>` | Batch transcoder. SRC can be a local dir or an rclone remote (pulls each file to temp, encodes, deletes temp). Used for the one-time backfill of clips already on MyCloud. |
+| `scan` | POSTs to Jellyfin `/Library/Refresh`. `import` calls this automatically; run by hand after a manual backfill rsync. |
+| `mount` | Mount the GoPro SD card and print its path (reuses the fish `gopro-mount` helper). |
+
+Run `gopro` (or `gopro help`) for the list, `gopro <cmd> -h` for per-command options.
+
+Other files: `.config/gopro.conf.example` (settings template → copy to
+`~/.config/gopro.conf`, real file git-ignored), `jellyfin-server-setup.md` (VPS
+Jellyfin runbook), `gopro-share-server.md` (VPS sharing runbook — nginx link server
++ Cloudreve mirror).
 
 ## One-time setup
 
@@ -73,15 +83,15 @@ SD card / MyCloud (4K)
 
 ```bash
 # Every time you pull the SD card:
-gopro-import                 # auto-detects the card; does everything
+gopro import                 # auto-detects the card; does everything
 
 # One-time backfill of clips already on MyCloud:
-gopro-stream "mycloud:Go Pro" ~/gopro-stream
+gopro stream "mycloud:Go Pro" ~/gopro-stream
 rsync -avP ~/gopro-stream/ server:/srv/media/gopro/
-gopro-scan                   # nudge Jellyfin to index them
+gopro scan                   # nudge Jellyfin to index them
 ```
 
-Both `gopro-stream` and `rsync` are resumable (skip already-done files), so a killed
+Both `gopro stream` and `rsync` are resumable (skip already-done files), so a killed
 run just continues. Run the backfill in `tmux` — it can take a couple of hours
 (download-bound by MyCloud's WebDAV, not your fibre).
 
@@ -92,20 +102,26 @@ Jellyfin shows the 1080p copies; the filename matches the original 1:1.
 - **TikTok / social:** just hit **Download** in Jellyfin (web ⋮ menu, or the app) —
   1080p is more than TikTok keeps anyway. No need to touch MyCloud. (Requires the
   user's *"Allow media downloads"* permission in Dashboard → Users.)
+- **Cutting / censoring before posting:** pull the 1080p copy straight to `~/edits`
+  (faster than the Jellyfin download, and skips the browser):
+  ```bash
+  gopro pull GX010942         # → ~/edits/GX010942.mp4
+  gopro pull wheelie --all    # every match
+  ```
 - **Full-quality editing:** grab the 4K original from MyCloud by name:
   ```bash
-  gopro-get GX010598          # exact-ish name seen in Jellyfin → ~/Downloads
-  gopro-get wheelie           # fuzzy match on the filename
-  gopro-get GX0106 --all --to ~/edits
+  gopro get GX010598          # exact-ish name seen in Jellyfin → ~/Downloads
+  gopro get wheelie           # fuzzy match on the filename
+  gopro get GX0106 --all --to ~/edits
   ```
 
-### Sending a clip to someone (`gopro-share`)
+### Sending a clip to someone
 
 ```bash
-gopro-share GX010598          # → https://share.elyesghazel.ch/<token>/GX010598.mp4
-gopro-share wheelie --all     # share every match
-gopro-share GX010598 --days 3 # link dies after 3 days (default 14)
-gopro-share GX010598 --4k     # full-res original instead of the 1080p copy
+gopro share GX010598          # → https://share.elyesghazel.ch/<token>/GX010598.mp4
+gopro share wheelie --all     # share every match
+gopro share GX010598 --days 3 # link dies after 3 days (default 14)
+gopro share GX010598 --4k     # full-res original instead of the 1080p copy
 ```
 
 No account for the recipient — they click and download. The clip is **hard-linked**
@@ -124,12 +140,14 @@ phone edit; the mirror never touches the 4K originals.
 
 ## Notes / gotchas
 
-- **Deploy:** `cd ~/dotfiles && stow gopro` symlinks the scripts into `~/.local/bin`
-  and the example into `~/.config`.
+- **Deploy:** `cd ~/dotfiles && stow gopro` symlinks `gopro` into `~/.local/bin`, the
+  workers into `~/.local/libexec/gopro/`, and the example into `~/.config`. (If a
+  worker ever shows up as a real file instead of a symlink, re-run with
+  `stow -D gopro && stow --no-folding gopro`.)
 - **Secrets:** `~/.config/gopro.conf` (Jellyfin key) and `~/.config/rclone/rclone.conf`
   (WebDAV password) are **not** committed — only the `.example` is.
 - **Jellyfin real-time monitoring is unreliable** for rsync'd files (temp-rename +
-  batch arrivals miss inotify), hence the explicit `gopro-scan` after upload.
+  batch arrivals miss inotify), hence the explicit `gopro scan` after upload.
 - **No transcoding on the VPS** — files are pre-optimized for direct play; the
   server has no GPU and must never transcode.
 - Tunables in `gopro.conf`: `RES` (default 1080), `CODEC` (`h264` for max

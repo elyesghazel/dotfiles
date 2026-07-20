@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# gopro-pull — copy the 1080p streamable copy from the media server to a local
+# folder for editing (cut it, censor the Tacho, whatever) before posting.
+# 1080p, not 4K — for full quality use `gopro get`.
+#
+# Usage:
+#   gopro pull <name|pattern> [--all] [--to DIR]
+#
+# Examples:
+#   gopro pull GX010942            # → ~/edits/GX010942.mp4
+#   gopro pull wheelie --all       # every match
+#   gopro pull GX0109 --to ~/clips
+set -euo pipefail
+
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/gopro.conf"
+[[ -f "$CONF" ]] && source "$CONF"
+: "${VPS_TARGET:?set VPS_TARGET in $CONF}"      # server:/srv/media/gopro
+SSH_HOST="${VPS_TARGET%%:*}"
+GOPRO_DIR="${VPS_TARGET#*:}"
+
+DEST="$HOME/edits"; ALL=0; ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --to)  DEST="$2"; shift 2;;
+    --all) ALL=1; shift;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0;;
+    *) ARGS+=("$1"); shift;;
+  esac
+done
+[[ ${#ARGS[@]} -eq 0 ]] && { echo "usage: gopro pull <name|pattern> [--all] [--to DIR]"; exit 1; }
+pat="${ARGS[*]}"
+
+echo ">> searching media server for '$pat' ..." >&2
+# list clips server-side under bash (login shell is fish), then filter locally
+mapfile -t all < <(ssh "$SSH_HOST" bash -s "$GOPRO_DIR" <<'RF'
+find "$1" -type f \( -iname '*.mp4' -o -iname '*.mov' \) -printf '%P\n'
+RF
+)
+mapfile -t hits < <(printf '%s\n' "${all[@]}" | grep -iF "$pat" | sort || true)
+n=${#hits[@]}
+
+if [[ $n -eq 0 ]]; then echo "no clip on the server matching '$pat'"; exit 1; fi
+if [[ $n -gt 1 && $ALL -eq 0 ]]; then
+  echo "$n matches — narrow it down, or re-run with --all:"; printf '   %s\n' "${hits[@]}"; exit 1
+fi
+
+mkdir -p "$DEST"
+for rel in "${hits[@]}"; do
+  echo ">> $rel  ->  $DEST/" >&2
+  rsync -aP --protect-args "$SSH_HOST:$GOPRO_DIR/$rel" "$DEST/"
+done
+echo "done -> $DEST"
