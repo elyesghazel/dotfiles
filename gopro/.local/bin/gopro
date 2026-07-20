@@ -8,19 +8,19 @@ LIBEXEC="${GOPRO_LIBEXEC:-$HOME/.local/libexec/gopro}"
 
 usage() {
   cat <<'EOF'
-gopro — archive, stream, share & edit GoPro footage
+gopro — archive, watch, share & edit GoPro footage
 
 usage: gopro <command> [args]
 
-  import [PATH]        ingest an SD card: 4K → MyCloud, 1080p → Jellyfin (+Cloudreve)
-  share  <name> [..]   private download link to send someone   (--4k, --days N, --all)
-  pull   <name> [..]   copy the 1080p clip to ~/edits for cutting/censoring  (--all, --to)
-  get    <name> [..]   pull the original 4K back from MyCloud   (--to DIR, --all)
-  stream <src> <dst>   batch-transcode originals → 1080p (backfill)
-  scan                 nudge Jellyfin to rescan its library
-  mount                mount the GoPro SD card and print its path
+  import    [PATH]        ingest an SD card: 4K → MyCloud, 1080p → Jellyfin (+Cloudreve)
+  share     <name> [..]   private download link to send someone   (--4k, --days N, --all)
+  pull      <name> [..]   copy the 1080p clip to ~/edits for cutting/censoring  (--all, --to)
+  get       <name> [..]   pull the original 4K back from MyCloud   (--to DIR, --all)
+  transcode <src> <dst>   batch-transcode a pile of originals → 1080p (backfill)
+  scan                    nudge Jellyfin to rescan its library
+  mount                   mount the GoPro SD card and print its path
 
-  help                 this text
+  help                    this text
 
 Most commands take a name or fuzzy pattern, e.g.  gopro share wheelie --days 3
 Run  gopro <command> -h  for command-specific options.
@@ -33,7 +33,7 @@ cmd="${1:-help}"
 case "$cmd" in
   help|-h|--help|'') usage ;;
   mount)             exec fish -c 'gopro-mount' ;;   # reuse the existing fish helper
-  import|share|pull|get|stream|scan)
+  import|share|pull|get|transcode|scan)
                      exec "$LIBEXEC/gopro-$cmd" "$@" ;;
   *) echo "gopro: unknown command '$cmd'" >&2; echo >&2; usage >&2; exit 1 ;;
 esac

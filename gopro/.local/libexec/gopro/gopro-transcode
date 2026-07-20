@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gopro-stream — batch-transcode fat GoPro originals into small, streamable copies.
+# gopro transcode — batch-transcode fat GoPro originals into small, streamable copies.
 # Full GPU pipeline on Nvidia (RTX 3060 / NVENC): hw-decode -> scale -> hw-encode.
 # Originals are NEVER touched; output mirrors the source tree.
 #
@@ -8,11 +8,11 @@
 # enough local disk to hold all the originals at once.
 #
 # Usage:
-#   gopro-stream <SRC|remote:path> <DST_DIR> [--res 1080] [--codec h264|hevc] [--dry-run]
+#   gopro transcode <SRC|remote:path> <DST_DIR> [--res 1080] [--codec h264|hevc] [--dry-run]
 #
 # Examples:
-#   gopro-stream /mnt/mycloud/gopro ~/gopro-stream
-#   gopro-stream "mycloud:Go Pro"  ~/gopro-stream          # straight from MyCloud
+#   gopro transcode /mnt/mycloud/gopro ~/gopro-stream
+#   gopro transcode "mycloud:Go Pro"  ~/gopro-stream          # straight from MyCloud
 #
 # Then upload DST_DIR to the VPS and point Jellyfin at it.
 
@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -z "$SRC" || -z "$DST" ]] && { echo "usage: gopro stream <SRC|remote:path> <DST_DIR> [--res N] [--codec h264|hevc] [--dry-run]"; exit 1; }
+[[ -z "$SRC" || -z "$DST" ]] && { echo "usage: gopro transcode <SRC|remote:path> <DST_DIR> [--res N] [--codec h264|hevc] [--dry-run]"; exit 1; }
 command -v ffmpeg >/dev/null || { echo "ffmpeg not installed"; exit 1; }
 
 # SRC is a local dir, or an rclone remote if it looks like "name:path".

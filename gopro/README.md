@@ -51,7 +51,7 @@ One command, git-style: **`gopro <subcommand>`**. The dispatcher lives at
 | `share <name> [--4k] [--days N] [--all]` | Hand a clip to someone via a private link. Hard-links the 1080p copy on the server under a random token, prints `https://share.elyesghazel.ch/<token>/<clip>` — no account, auto-expires. `--4k` serves the original instead. |
 | `pull <name> [--all] [--to DIR]` | Copy the **1080p** copy from the server to `~/edits` for cutting/censoring before posting. (For 4K use `get`.) |
 | `get <name> [--to DIR] [--all]` | Pull the **original 4K** back from MyCloud by name/pattern → `~/Downloads`. For full-quality editing. |
-| `stream <SRC│remote:path> <DST>` | Batch transcoder. SRC can be a local dir or an rclone remote (pulls each file to temp, encodes, deletes temp). Used for the one-time backfill of clips already on MyCloud. |
+| `transcode <SRC│remote:path> <DST>` | Batch transcoder. SRC can be a local dir or an rclone remote (pulls each file to temp, encodes, deletes temp). Used for the one-time backfill of clips already on MyCloud. |
 | `scan` | POSTs to Jellyfin `/Library/Refresh`. `import` calls this automatically; run by hand after a manual backfill rsync. |
 | `mount` | Mount the GoPro SD card and print its path (reuses the fish `gopro-mount` helper). |
 
@@ -86,12 +86,12 @@ Jellyfin runbook), `gopro-share-server.md` (VPS sharing runbook — nginx link s
 gopro import                 # auto-detects the card; does everything
 
 # One-time backfill of clips already on MyCloud:
-gopro stream "mycloud:Go Pro" ~/gopro-stream
+gopro transcode "mycloud:Go Pro" ~/gopro-stream
 rsync -avP ~/gopro-stream/ server:/srv/media/gopro/
 gopro scan                   # nudge Jellyfin to index them
 ```
 
-Both `gopro stream` and `rsync` are resumable (skip already-done files), so a killed
+Both `gopro transcode` and `rsync` are resumable (skip already-done files), so a killed
 run just continues. Run the backfill in `tmux` — it can take a couple of hours
 (download-bound by MyCloud's WebDAV, not your fibre).
 

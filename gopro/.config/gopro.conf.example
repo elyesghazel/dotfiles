@@ -1,4 +1,4 @@
-# gopro.conf — settings for gopro-import / gopro-stream / gopro-scan
+# gopro.conf — settings for the gopro pipeline (import / transcode / share / pull / …)
 # Copy to ~/.config/gopro.conf and fill in. The real file is git-ignored (secrets).
 
 # Full-quality originals. An rclone remote ("name:path") uses rclone; a plain path
