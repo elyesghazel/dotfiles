@@ -21,9 +21,18 @@ mega-goal-prompt  88cbe8433a97a1c3e0e8225ed9dc0532bc3926e5
 find-skills       3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d
 ```
 
+## Shared
+
+`sdx-design` — authored here, documenting the public
+[SDX design system](https://sdx.swisscom.com). A copy was shared with a colleague and lives
+at [isaaclins/.config](https://github.com/isaaclins/.config/tree/main/agents/skills/sdx-design)
+(`agents/skills/sdx-design/`). As of 2026-08-17 the two are identical apart from the
+frontmatter `description`; this repo's version lists the concrete components, which gives the
+model more to match on. **This repo is authoritative** — if the copies drift, reconcile here
+first.
+
 ## Local
 
-`drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards`,
-`sdx-design` — maintained in this repo. `sdx-design` documents the public
-[SDX design system](https://sdx.swisscom.com); `excalidraw-boards` and `markitdown`
-depend on the MCP servers registered by `../bin/mcp-bootstrap.fish`.
+`drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards` — maintained
+in this repo. `excalidraw-boards` and `markitdown` depend on the MCP servers registered by
+`../bin/mcp-bootstrap.fish`.
