@@ -33,4 +33,26 @@ echo "==> Linking configs with stow"
 cd "$DOTFILES"
 stow fish kitty hypr waybar dunst starship vicinae claude
 
+echo "==> Installing Claude settings.json"
+# Not stowed: Claude Code rewrites this file atomically, which would replace a
+# symlink with a regular file. Copied instead; dotsync copies changes back.
+mkdir -p "$HOME/.claude"
+if [ -f "$HOME/.claude/settings.json" ] && \
+   ! diff -q "$DOTFILES/claude/.claude/settings.json" "$HOME/.claude/settings.json" >/dev/null; then
+    cp "$HOME/.claude/settings.json" "$HOME/.claude/settings.json.bak.$(date +%Y%m%d-%H%M%S)"
+    echo "    existing settings.json differed — backed up"
+fi
+cp "$DOTFILES/claude/.claude/settings.json" "$HOME/.claude/settings.json"
+
+echo "==> Registering Claude MCP servers"
+# MCP servers live in ~/.claude.json alongside oauth tokens and machine state,
+# so they are rebuilt from the tracked bootstrap script rather than synced.
+if [ -f "$HOME/.claude/secrets.fish" ]; then
+    fish "$HOME/.claude/bin/mcp-bootstrap.fish"
+else
+    echo "    skipped — no ~/.claude/secrets.fish yet."
+    echo "    cp ~/.claude/secrets.fish.example ~/.claude/secrets.fish, fill it in,"
+    echo "    then run: fish ~/.claude/bin/mcp-bootstrap.fish"
+fi
+
 echo "Done!"

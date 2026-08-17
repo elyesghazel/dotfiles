@@ -1,0 +1,27 @@
+# Replaces stow's built-in ignore list for this package, so the defaults are
+# repeated here before the package-specific additions.
+
+RCS
+.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git
+\.gitignore
+\.gitmodules
+.+~
+\#.*\#
+^/README.*
+^/LICENSE.*
+^/COPYING
+
+# --- package-specific ------------------------------------------------------
+# settings.json is NOT symlinked. Claude Code rewrites it atomically (write
+# temp + rename), which silently replaces a symlink with a regular file and
+# breaks the link to this repo. It is copy-synced instead:
+#   repo -> home  by install.sh
+#   home -> repo  by the dotsync fish function
+settings\.json

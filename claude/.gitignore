@@ -1,2 +1,44 @@
 **/__pycache__/
 *.pyc
+
+# ---------------------------------------------------------------------------
+# Everything below is machine state or secrets and must never be committed.
+# Stow only links what is tracked here, so these stay local to each device.
+# ---------------------------------------------------------------------------
+
+# Credentials + the big mixed state file (oauth tokens, userID, machineID,
+# per-project history AND mcpServers). MCP servers are reproduced instead by
+# .claude/bin/mcp-bootstrap.fish — see that script.
+.claude/.credentials.json
+.claude/.claude.json
+
+# Secrets consumed by mcp-bootstrap.fish (copy secrets.fish.example -> secrets.fish)
+.claude/secrets.fish
+
+# Machine-local permission grants — deliberately NOT synced
+.claude/settings.local.json
+
+# Session / runtime state
+.claude/history.jsonl
+.claude/projects/
+.claude/sessions/
+.claude/session-env/
+.claude/shell-snapshots/
+.claude/file-history/
+.claude/paste-cache/
+.claude/downloads/
+.claude/backups/
+.claude/cache/
+.claude/daemon/
+.claude/jobs/
+.claude/ide/
+.claude/todos/
+.claude/statsig/
+.claude/memory/
+.claude/daemon.*
+.claude/stats-cache.json
+.claude/mcp-needs-auth-cache.json
+.claude/.last-*
+
+# Plugins: marketplace clones and caches are re-fetched from settings.json
+.claude/plugins/

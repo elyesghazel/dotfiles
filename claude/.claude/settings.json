@@ -1,0 +1,22 @@
+{
+  "model": "opus",
+  "effortLevel": "high",
+  "theme": "dark",
+  "agentPushNotifEnabled": true,
+  "statusLine": {
+    "type": "command",
+    "command": "codecash render # codecash-statusline",
+    "padding": 0
+  },
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-hud": {
+      "source": {
+        "source": "github",
+        "repo": "jarrodwatts/claude-hud"
+      }
+    }
+  }
+}
