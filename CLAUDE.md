@@ -43,8 +43,19 @@ dotfiles/
 ├── vicinae/     → ~/.config/vicinae/
 ├── nwg-dock/    → ~/.config/nwg-dock-hyprland/
 ├── spicetify/   → ~/.config/spicetify/
+├── claude/      → ~/.claude/    (global CLAUDE.md, settings.json, skills/, bin/)
 └── packages/    # package lists and update script (not stowed)
 ```
+
+The `claude` package holds the global Claude Code config. MCP servers are **not** a synced
+file — they live in the gitignored `~/.claude.json` next to OAuth tokens and machine state,
+and are rebuilt by `claude/.claude/bin/mcp-bootstrap.fish` from a gitignored
+`~/.claude/secrets.fish`. Never commit `.claude.json`, `.credentials.json`,
+`settings.local.json`, or session state.
+
+`settings.json` is copy-synced rather than symlinked (Claude Code rewrites it atomically and
+would clobber the link) — `claude/.stow-local-ignore` excludes it from stow, `install.sh`
+copies it out and `dotsync` copies it back.
 
 `install.sh` runs `stow` on the core packages and installs all packages from `packages/pacman.txt` and `packages/aur.txt`. `nwg-dock` and `spicetify` are not in the default stow run and must be stowed manually.
 
@@ -82,7 +93,7 @@ Custom functions live in `fish/.config/fish/functions/`. Notable ones:
 
 | Function | Purpose |
 |----------|---------|
-| `dotsync` | Commit + push dotfiles with auto hostname-tagged message |
+| `dotsync [subject]` | Commit + push dotfiles; validates the Conventional Commits subject |
 | `hconf [module]` | Quick-edit a hyprland conf module in nano |
 | `npr` | Interactive new project (Swisscom / business / education paths) |
 | `npu` | Create and push a new public GitHub repo |
