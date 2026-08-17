@@ -42,7 +42,7 @@ See [`gopro/README.md`](gopro/README.md) for the full GoPro → Jellyfin workflo
 | Path | Sync | What |
 |------|------|------|
 | `CLAUDE.md` | symlink | Global instructions — commit conventions, skill triggers |
-| `skills/` | symlink | 8 skills: drawio, ui-ux-pro-max, graphify, sdx-design, excalidraw-boards, markitdown, content-strategy, mega-goal-prompt |
+| `skills/` | symlink | 9 skills — see [below](#skills) |
 | `bin/mcp-bootstrap.fish` | symlink | Recreates user-scope MCP servers |
 | `settings.json` | **copy** | Model, effort, theme, statusline, plugins, marketplaces |
 
@@ -67,6 +67,50 @@ Also never synced: `.credentials.json`, `settings.local.json` (machine-local per
 grants), and all session/history state. See [`claude/.gitignore`](claude/.gitignore).
 
 > If a symlinked config ever turns back into a regular file, run `stow -R claude`.
+
+### Skills
+
+| Skill | What it does |
+|---|---|
+| `sdx-design` | Swisscom SDX design system — see below |
+| `drawio-skill` | Diagrams as `.drawio` XML, exported via the draw.io desktop CLI |
+| `ui-ux-pro-max` | UI/UX design intelligence — styles, palettes, font pairings, stacks |
+| `graphify` | Turns code, docs, papers or video into a queryable knowledge graph |
+| `excalidraw-boards` | Draws on the self-hosted Excalidraw at `draw.elyesghazel.ch` |
+| `markitdown` | Converts PDF/Office/EPub/audio into Markdown |
+| `content-strategy` | Content planning — topic clusters, editorial calendars |
+| `mega-goal-prompt` | Interviews you, then emits a `/goal` prompt for autonomous runs |
+| `find-skills` | Discovers and installs new skills |
+
+`excalidraw-boards` and `markitdown` need their MCP servers registered first — see
+`bin/mcp-bootstrap.fish` above. Upstream sources for the vendored skills are recorded in
+[`claude/.claude/skills/SOURCES.md`](claude/.claude/skills/SOURCES.md).
+
+#### sdx-design
+
+Own work: a skill for the [SDX (Swisscom Digital Experience) design system](https://sdx.swisscom.com).
+It makes Claude reach for SDX web components (`<sdx-*>`) for UI elements — buttons, inputs,
+selects, dialogs, tabs, accordions, icons — and Tailwind with the `tw:` prefix for layout,
+spacing and anything SDX does not cover. The rule it enforces is that the two never mix:
+SDX components are never restyled with Tailwind colour or typography classes.
+
+```
+sdx-design/
+├── SKILL.md                 setup, component/Tailwind split, layout patterns, rules
+└── references/
+    ├── components.md        full <sdx-*> API — props, events, slots
+    ├── tokens.md            CSS custom properties — surfaces, borders, text, icons
+    └── icons.md             icon names and usage
+```
+
+Triggered by `/sdx`, and loaded automatically when building UI in a Swisscom project.
+SKILL.md is the entry point; the references are read on demand so the whole design system
+does not sit in context.
+
+A copy was shared with a colleague at
+[isaaclins/.config](https://github.com/isaaclins/.config/tree/main/agents/skills/sdx-design).
+That copy is a fork, not a link — **this repo is authoritative** and nothing syncs
+automatically between the two.
 
 ---
 
