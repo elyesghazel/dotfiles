@@ -24,7 +24,10 @@ abbr -a upall "update_all"
 
 # 4. interactive tools
 zoxide init fish | source
-starship init fish | source
+# starship replaced by the custom two-line prompt in functions/fish_prompt.fish.
+# `starship init` defines fish_prompt at source time and would override it.
+# To go back: uncomment this line and `rm functions/fish_prompt.fish`.
+# starship init fish | source
 
 
 # pnpm
