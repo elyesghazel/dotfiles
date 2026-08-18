@@ -1,6 +1,6 @@
 ---
 name: excalidraw-boards
-description: Explain something visually by drawing it on the self-hosted Excalidraw at draw.elyesghazel.ch. Use when an architecture, pipeline, flow, state machine, timeline, or relationship between ideas would be clearer as a diagram, when the user says "explain visually", "draw this", "make me a diagram/board", or when they send a draw.elyesghazel.ch board link and want it read or extended.
+description: Draw anything visual on the self-hosted Excalidraw at draw.elyesghazel.ch. This is the DEFAULT skill for every diagram or visual request. Use whenever the user says "diagram", "visual", "visualise/visualize", "draw", "sketch", "chart", "flow", "flowchart", "graph", "map it out", "board", "whiteboard", "explain visually", "show me how X works", or asks for an architecture, pipeline, sequence, state machine, timeline, mind map, org chart, ER diagram, or any relationship between ideas rendered as a picture. Also use proactively when explaining a system with 3+ components or a non-trivial data flow, and when the user sends a draw.elyesghazel.ch board link to read or extend. Prefer this over drawio-skill unless the user explicitly asks for draw.io or an exported PNG/SVG/PDF file.
 ---
 
 # Excalidraw boards

@@ -60,3 +60,16 @@ When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` 
 
 When the user types `/sdx`, read `~/.claude/skills/sdx-design/SKILL.md` and follow its instructions.
 When building UI in a Swisscom/SDX project, always read this skill first.
+
+# excalidraw-boards
+
+- **excalidraw-boards** (`~/.claude/skills/excalidraw-boards/SKILL.md`) - draw on the self-hosted Excalidraw at `draw.elyesghazel.ch`. Trigger: `/excalidraw-boards`
+
+Whenever I ask for a **diagram, visual, drawing, sketch, chart, flow/flowchart, graph,
+board/whiteboard, mind map**, say "visualise this", "draw this", "map it out", "explain
+visually", or ask how a system works in a way that's clearer as a picture — invoke the Skill
+tool with `skill: "excalidraw-boards"` before answering. Same when I paste a
+`draw.elyesghazel.ch` board link.
+
+This is the default for anything visual, and it wins over `drawio-skill`. Only reach for
+`drawio-skill` when I explicitly say draw.io, or I need an exported PNG/SVG/PDF file.

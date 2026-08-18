@@ -9,6 +9,7 @@ blueman
 bluetui
 bluez
 bluez-utils
+bolt
 brightnessctl
 btop
 calf
@@ -35,6 +36,7 @@ firefox
 fish
 flatpak
 fprintd
+ghostty
 git
 github-cli
 grim
@@ -113,6 +115,7 @@ stow
 sudo
 swaync
 system-config-printer
+tailscale
 thunar
 thunar-volman
 thunderbird

@@ -1,3 +1,4 @@
+anydesk-bin
 appimagelauncher
 catppuccin-cursors-mocha
 catppuccin-gtk-theme-mocha
