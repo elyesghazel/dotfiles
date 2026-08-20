@@ -24,6 +24,11 @@ AUDIO = {
               "loudnorm=I=-16:TP=-1.5:LRA=11"),
     "amb":   "highpass=f=100,loudnorm=I=-22:TP=-2:LRA=11",
     "ride":  "highpass=f=90,loudnorm=I=-24:TP=-2:LRA=11",
+    # engine IS the content: keep the fundamental (can drop to ~50 Hz at low rpm,
+    # so the high-pass sits below `ride`'s), shave wind hiss, and normalise loud
+    # to the ~-14 LUFS social platforms target instead of ducking it away.
+    "engine": ("highpass=f=55,treble=g=-5:f=7000:width_type=q:width=0.7,"
+               "loudnorm=I=-14:TP=-1:LRA=9"),
 }
 
 ap = argparse.ArgumentParser()
