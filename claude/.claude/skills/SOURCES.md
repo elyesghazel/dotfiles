@@ -33,6 +33,11 @@ first.
 
 ## Local
 
-`drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards` — maintained
-in this repo. `excalidraw-boards` and `markitdown` depend on the MCP servers registered by
+`drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards`, `video-cut` —
+maintained in this repo. `excalidraw-boards` and `markitdown` depend on the MCP servers registered by
 `../bin/mcp-bootstrap.fish`.
+
+`video-cut` was written on 2026-08-20 while cutting the 24 July 2026 Appenzell footage, and
+encodes what that edit actually cost to get right: transcribe before cutting, watch the
+contact sheets, keep the music bed out of the render. Its `scripts/` are the generalised
+versions of the ones in that project.

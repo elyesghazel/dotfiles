@@ -42,7 +42,7 @@ See [`gopro/README.md`](gopro/README.md) for the full GoPro → Jellyfin workflo
 | Path | Sync | What |
 |------|------|------|
 | `CLAUDE.md` | symlink | Global instructions — commit conventions, skill triggers |
-| `skills/` | symlink | 9 skills — see [below](#skills) |
+| `skills/` | symlink | 10 skills — see [below](#skills) |
 | `bin/mcp-bootstrap.fish` | symlink | Recreates user-scope MCP servers |
 | `settings.json` | **copy** | Model, effort, theme, statusline, plugins, marketplaces |
 
@@ -81,6 +81,7 @@ grants), and all session/history state. See [`claude/.gitignore`](claude/.gitign
 | `content-strategy` | Content planning — topic clusters, editorial calendars |
 | `mega-goal-prompt` | Interviews you, then emits a `/goal` prompt for autonomous runs |
 | `find-skills` | Discovers and installs new skills |
+| `video-cut` | Cuts raw camera footage into a finished film — see below |
 
 `excalidraw-boards` and `markitdown` need their MCP servers registered first — see
 `bin/mcp-bootstrap.fish` above. Upstream sources for the vendored skills are recorded in
@@ -111,6 +112,37 @@ A copy was shared with a colleague at
 [isaaclins/.config](https://github.com/isaaclins/.config/tree/main/agents/skills/sdx-design).
 That copy is a fork, not a link — **this repo is authoritative** and nothing syncs
 automatically between the two.
+
+#### video-cut
+
+Own work: turning a folder of action-cam clips into an edited film. Written while cutting the
+Appenzell footage, and shaped by what actually went wrong there.
+
+```
+video-cut/
+├── SKILL.md                 order of work, the EDL, the traps
+├── references/
+│   ├── pipeline.md          scripts in detail, dissolve rules, render flags
+│   └── audio.md             grade + audio profiles, ducking depths
+└── scripts/
+    ├── survey.py            specs table + contact sheets
+    ├── transcribe.py        faster-whisper -> transcript.json
+    ├── trim.py              edl.json -> cut, graded, levelled clips
+    ├── timeline.py          -> frame-accurate timeline.json
+    ├── speechmap.py         transcript -> film time, where music may breathe
+    └── score.py             arranged, speech-ducked music bed + mux
+```
+
+The whole edit lives in one hand-written `edl.json`; everything else regenerates from it.
+Three rules carry most of the value:
+
+- **Transcribe before cutting.** Round timecodes chop people mid-sentence. Every in/out
+  snaps to a transcript segment boundary.
+- **Look at the footage.** Contact sheets, read as images, before any decision.
+- **Keep music out of the render.** The picture takes tens of minutes; `score.py` muxes with
+  `-c:v copy` in seconds, so the soundtrack can be re-tuned freely.
+
+Needs `ffmpeg` and `numpy`; `transcribe.py` additionally needs `faster-whisper` in a venv.
 
 ---
 
