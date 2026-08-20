@@ -91,6 +91,10 @@ places — never present an inference as fact.
 **Camera clocks lie.** Folder names derived from clip timestamps are frequently years off.
 Ask the user the real date before putting it on a title card.
 
+**Tracking scores lie.** `cv2.matchTemplate` reports high confidence on asphalt. Never accept
+a tracker's own score as evidence — draw the box on frames and look. See
+`references/obscuring.md`.
+
 **`np.convolve` is O(n·k).** A 1-second smoothing kernel at 48 kHz over a 3-minute track is
 ~5·10¹¹ operations. Use the repeated box filter in `score.py` — O(n), and it turns minutes
 into seconds.
@@ -127,4 +131,7 @@ without a firewall.
 ## Reference
 
 - `references/pipeline.md` — the scripts in detail, EDL fields, dissolve rules
-- `references/audio.md` — grade and audio profiles, levels, ducking depths
+- `references/audio.md` — grade and audio profiles, levels, ducking depths, picking
+  engine-forward shots, telling combustion from electric
+- `references/obscuring.md` — blurring a plate, dash or face: when to track and when not to,
+  why tracking scores lie, calibrating the blur by measurement
