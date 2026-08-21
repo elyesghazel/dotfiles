@@ -44,6 +44,7 @@ dotfiles/
 ├── nwg-dock/    → ~/.config/nwg-dock-hyprland/
 ├── spicetify/   → ~/.config/spicetify/
 ├── claude/      → ~/.claude/    (global CLAUDE.md, settings.json, skills/, bin/)
+├── gopro/       → ~/.local/bin/, ~/.local/libexec/gopro/, ~/.config/
 └── packages/    # package lists and update script (not stowed)
 ```
 
@@ -100,6 +101,22 @@ Custom functions live in `fish/.config/fish/functions/`. Notable ones:
 | `update_all` | System-wide update (pacman → AUR → pnpm → dotsync) |
 
 Environment-specific fish config goes in `fish/.config/fish/conf.d/arch.fish` or `conf.d/wsl.fish`.
+
+## GoPro pipeline
+
+`gopro/` is the GoPro → Jellyfin workflow: 4K originals to MyCloud, a 1440p stream
+copy to the VPS for Jellyfin, and `share.elyesghazel.ch` links. Full docs in
+`gopro/README.md`; the VPS runbooks are `gopro/jellyfin-server-setup.md` and
+`gopro/gopro-share-server.md`. Two things that aren't obvious from the code:
+
+- **Encode profiles are stamped into each output's mp4 `comment` tag** (e.g.
+  `gopro-enc:v2:1440p:h264:cq22`), and the skip-check compares that tag rather than
+  testing file existence. Changing `RES`/`CODEC`/`CQ`/`ENC_VERSION` in
+  `~/.config/gopro.conf` makes existing copies stale; `gopro backfill` redoes exactly
+  those. Never "fix" the skip-check back to a plain `-s "$out"` test.
+- **`gopro/server/` is deliberately not stowed** — it's the VPS side (nginx conf,
+  dashboard builder), rsync'd to `/opt/docker/gopro-share/` on every `gopro share`
+  run so the deployed copy can't drift from the repo.
 
 ## Multi-machine workflow
 
