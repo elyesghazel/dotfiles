@@ -1,4 +1,4 @@
-# gopro.conf — settings for the gopro pipeline (import / transcode / share / pull / …)
+# gopro.conf — settings for the gopro pipeline (import / backfill / share / pull / …)
 # Copy to ~/.config/gopro.conf and fill in. The real file is git-ignored (secrets).
 
 # Full-quality originals. An rclone remote ("name:path") uses rclone; a plain path
@@ -7,28 +7,52 @@
 #     vendor=other user='you@example.com' pass='YOUR_WEBDAV_PASSWORD' --obscure
 ARCHIVE="mycloud:Go Pro"
 
-# Local scratch dir where 1080p streamable copies are made before upload.
+# Local scratch dir where streamable copies are made before upload.
 STAGING="$HOME/gopro-stream"
 
 # Where streamable copies are pushed (the VPS dir Jellyfin reads). SSH alias:path.
 VPS_TARGET="server:/srv/media/gopro"
 
-# Transcode settings
-RES=1080            # streaming resolution
-CODEC=h264          # h264 = plays on everything; hevc = ~40% smaller
+# --- transcode ladder ---------------------------------------------------------
+# Every streamable copy is stamped with "gopro-enc:v<VER>:<RES>p:<CODEC>:cq<CQ>" in
+# its mp4 comment tag. The skip-check compares that stamp, so changing anything
+# below makes existing copies stale and `gopro backfill` will redo them — while
+# copies already at the current profile stay skipped. Bump ENC_VERSION to force a
+# re-encode without changing the ladder itself.
+RES=1440            # streaming resolution (1080 / 1440 / 2160)
+CODEC=h264          # h264 = plays on everything (incl. the share dashboard); hevc = ~40% smaller
+CQ=22               # quality target; lower = better = bigger
+VBITRATE=12M        # average bitrate
+VMAXRATE=18M        # ceiling — high-motion riding footage leans on this
+ABITRATE=128k
+ENC_VERSION=2
+
+# --- archive transfer tuning --------------------------------------------------
+# MyCloud throttles per connection, not per account: 1 stream ≈ 4 MB/s, 8 streams
+# ≈ 25 MB/s (desktop) / 83 MB/s (VPS). Don't drop these back to 1.
+RCLONE_TRANSFERS=8
+RCLONE_CHECKERS=16
+RCLONE_STREAMS=4
 
 # Jellyfin auto-scan after upload (optional). Key: Dashboard → API Keys.
 JELLYFIN_URL="https://media.elyesghazel.ch"
 JELLYFIN_KEY="pastekey"
 
-# --- gopro-share (private download links) ---
+# --- gopro-share (private link + dashboard) -----------------------------------
 # Defaults are fine; uncomment to override.
 # SHARE_HOST="share.example.com"         # subdomain serving the links
 # SHARE_DIR="/srv/media/gopro-share"     # dir on the server behind that subdomain
 EXPIRE_DAYS=14                           # links auto-expire after this many days
+SHARE_4K=1                               # stage the 4K originals too (--no-4k per share)
+DISK_MARGIN_GB=20                        # never let staged originals leave less free than this
+SHARE_TITLE="GoPro"                      # heading shown on the dashboard
 
-# --- Cloudreve mirror (optional; browse/grab clips on the phone) ---
-# After each import, mirror the 1080p copies into Cloudreve so they show up in its
-# app. Runs server-side (see gopro-share-server.md) to dodge Cloudflare's 100MB cap.
+# The VPS needs its own rclone remote pointing at the same archive so `--4k` can
+# stage originals server-side (~83 MB/s) instead of routing them via the desktop.
+SERVER_ARCHIVE="mycloud:Go Pro"
+
+# --- Cloudreve mirror (optional; browse/grab clips on the phone) ---------------
+# After each import, mirror the streamable copies into Cloudreve so they show up in
+# its app. Runs server-side (see gopro-share-server.md) to dodge Cloudflare's 100MB cap.
 CLOUDREVE_SYNC=0                         # set to 1 to enable
 # CLOUDREVE_MIRROR="/opt/docker/gopro-share/cloudreve-mirror.sh"  # server-side script

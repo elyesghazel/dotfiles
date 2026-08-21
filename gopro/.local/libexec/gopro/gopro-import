@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # gopro-import — one-command workflow for a fresh GoPro microSD card.
 #
-#   1. archive 4K originals  ->  MyCloud ($ARCHIVE/<clip-date>/)   [full quality, kept]
-#   2. transcode to 1080p    ->  local $STAGING/<clip-date>/        [RTX 3060 / NVENC]
-#   3. push streamable copies ->  the VPS ($VPS_TARGET)            [Jellyfin watches]
+#   1. archive 4K originals   ->  MyCloud ($ARCHIVE/<clip-date>/)   [full quality, kept]
+#   2. transcode to $RES      ->  local $STAGING/<clip-date>/        [RTX 3060 / NVENC]
+#   3. push streamable copies ->  the VPS ($VPS_TARGET)             [Jellyfin serves]
 #   4. summary + optional SD wipe (only after originals are safely archived)
+#
+# Copies are stamped with the encode profile, so a clip already transcoded at the
+# current ladder is skipped and one at an older ladder is redone. See _lib.sh.
 #
 # Usage:
 #   gopro-import                 # auto-detects an inserted SD card
@@ -15,15 +18,17 @@
 
 set -uo pipefail
 
-CONF="${XDG_CONFIG_HOME:-$HOME/.config}/gopro.conf"
-[[ -f "$CONF" ]] && source "$CONF" || { echo "missing $CONF"; exit 1; }
-: "${ARCHIVE:?}" "${STAGING:?}" "${VPS_TARGET:?}" "${RES:=1080}" "${CODEC:=h264}"
+LIB="$(dirname "$(readlink -f "$0")")/_lib.sh"
+# shellcheck source=_lib.sh
+source "$LIB"
+gopro_conf || exit 1
+: "${ARCHIVE:?}" "${STAGING:?}" "${VPS_TARGET:?}"
 
 UPLOAD=1; SRC=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-upload) UPLOAD=0; shift;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0;;
     *) SRC="$1"; shift;;
   esac
 done
@@ -40,11 +45,10 @@ fi
 echo ">> source : $SRC"
 echo ">> archive: $ARCHIVE   (4K originals)"
 echo ">> stream : $STAGING -> $VPS_TARGET"
+echo ">> profile: $(gopro_profile)"
 
-case "$CODEC" in h264) ENC=h264_nvenc;; hevc) ENC=hevc_nvenc;; *) echo "bad codec"; exit 1;; esac
-
-# GoPro real clips are GX*/GH*.MP4 (skip .LRV proxies and .THM thumbnails).
-mapfile -d '' FILES < <(find "$SRC" -type f \( -iname 'G[XH]*.mp4' -o -iname '*.mp4' \) -print0)
+# GoPro real clips are GX*/GH*.MP4 (.LRV proxies and .THM thumbnails aren't .mp4).
+mapfile -d '' FILES < <(find "$SRC" -type f -iname '*.mp4' -print0)
 [[ ${#FILES[@]} -eq 0 ]] && { echo "No .mp4 clips under $SRC"; exit 0; }
 echo ">> ${#FILES[@]} clips on card"; echo
 
@@ -57,7 +61,7 @@ for in in "${FILES[@]}"; do
 
   # 1) archive original — rclone remote ("name:path") or local mount; both skip dupes
   if [[ "$ARCHIVE" == *:* ]]; then
-    archive_cmd=(rclone copy --ignore-existing "$in" "$ARCHIVE/$d/")
+    archive_cmd=(gopro_rclone_fast copy --ignore-existing "$in" "$ARCHIVE/$d/")
   else
     mkdir -p "$ARCHIVE/$d"
     archive_cmd=(rsync -a --ignore-existing "$in" "$ARCHIVE/$d/")
@@ -65,20 +69,13 @@ for in in "${FILES[@]}"; do
   if "${archive_cmd[@]}"; then arch_ok=$((arch_ok+1)); else
     echo "!! archive FAILED: $base"; fail=$((fail+1)); continue; fi
 
-  # 2) transcode to streamable 1080p (skip if done)
+  # 2) transcode to a streamable copy (skip if already at the current profile)
   out="$sdir/${base%.*}.mp4"
-  if [[ -s "$out" ]]; then echo "skip  $d/$base (already transcoded)"; skip=$((skip+1)); continue; fi
+  if ! gopro_needs_encode "$out"; then
+    echo "skip  $d/$base (already $(gopro_profile))"; skip=$((skip+1)); continue
+  fi
   printf 'enc   %s/%s (%s)\n' "$d" "$base" "$(numfmt --to=iec "$(stat -c%s "$in")")"
-  # NOTE: decode on GPU but hand frames back to the CPU (no -hwaccel_output_format
-  # cuda, CPU scale filter). This lets ffmpeg auto-apply the clip's rotation flag
-  # -- GoPros mounted upside down record rotation=-180 metadata rather than flipping
-  # pixels. Keeping frames on the GPU (scale_cuda) silently skips that, baking the
-  # video in upside down. Still NVENC-encoded, still ~3x realtime on the 3060.
-  if ffmpeg -hide_banner -loglevel error -stats -y \
-       -hwaccel cuda -i "$in" \
-       -vf "scale=-2:${RES}" \
-       -c:v "$ENC" -preset p5 -tune hq -rc vbr -cq 23 -b:v 8M -maxrate 12M -bufsize 16M \
-       -c:a aac -b:a 128k -movflags +faststart "$out"; then
+  if gopro_encode "$in" "$out"; then
     enc_ok=$((enc_ok+1))
   else
     echo "!! transcode FAILED: $base"; rm -f "$out"; fail=$((fail+1))
@@ -98,13 +95,13 @@ if [[ $UPLOAD -eq 1 && $fail -eq 0 ]]; then
       && echo "   scan triggered" || echo "   (scan trigger failed — rescan manually)"
   fi
 
-  # Also surface the 1080p copies in Cloudreve (files.elyesghazel.ch) so you can
+  # Also surface the streamable copies in Cloudreve (files.elyesghazel.ch) so you can
   # grab/edit/share them from the phone without the PC. The server mirrors them
   # straight into Cloudreve over the docker network — dodging Cloudflare's 100MB
   # upload cap. Non-fatal: the 4K archive and Jellyfin stream already succeeded.
   if [[ "${CLOUDREVE_SYNC:-0}" == "1" ]]; then
-    echo ">> mirroring 1080p copies into Cloudreve..."
-    ssh "${VPS_TARGET%%:*}" "${CLOUDREVE_MIRROR:-/opt/docker/gopro-share/cloudreve-mirror.sh}" \
+    echo ">> mirroring streamable copies into Cloudreve..."
+    ssh "$(gopro_ssh_host)" "${CLOUDREVE_MIRROR:-/opt/docker/gopro-share/cloudreve-mirror.sh}" \
       && echo "   available in Cloudreve" || echo "   (Cloudreve mirror failed — clips are still on Jellyfin)"
   fi
 elif [[ $fail -ne 0 ]]; then
