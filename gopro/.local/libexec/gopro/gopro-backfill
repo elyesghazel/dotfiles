@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# gopro-backfill — bring every clip in the archive up to the current encode ladder.
+#
+# Compares the archive against what the media server actually holds, using the
+# encode-profile stamp in each streamable copy (see _lib.sh). A clip is redone when
+# it is missing from the server entirely, or was encoded with an older ladder
+# (different RES / CODEC / CQ / ENC_VERSION). Anything already at the current
+# profile is skipped, so the run is idempotent — kill it and re-run whenever.
+#
+# Originals are pulled from the archive in batches so rclone gets its parallelism
+# (one-at-a-time is ~4 MB/s; a batch of 8 is ~25 MB/s), encoded on the GPU, pushed
+# up, then deleted locally. Nothing in the archive is ever modified.
+#
+# Usage:
+#   gopro-backfill [--dry-run] [--limit N] [--batch N] [--pattern STR] [--no-upload]
+#
+# Examples:
+#   gopro-backfill --dry-run            # what would be redone, and how much data
+#   gopro-backfill --limit 20           # chip away at it 20 clips at a time
+#   gopro-backfill --pattern GX0109     # only clips matching this
+#   gopro-backfill                      # the whole thing (run it in tmux)
+
+set -uo pipefail
+
+LIB="$(dirname "$(readlink -f "$0")")/_lib.sh"
+# shellcheck source=_lib.sh
+source "$LIB"
+gopro_conf || exit 1
+: "${ARCHIVE:?}" "${STAGING:?}" "${VPS_TARGET:?}"
+
+DRY=0; LIMIT=0; BATCH=8; PAT=""; UPLOAD=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)   DRY=1; shift;;
+    --limit)     LIMIT="$2"; shift 2;;
+    --batch)     BATCH="$2"; shift 2;;
+    --pattern)   PAT="$2"; shift 2;;
+    --no-upload) UPLOAD=0; shift;;
+    -h|--help)   sed -n '2,24p' "$0"; exit 0;;
+    *) echo "unknown arg: $1" >&2; exit 1;;
+  esac
+done
+
+SSH_HOST="$(gopro_ssh_host)"; GOPRO_DIR="$(gopro_gopro_dir)"
+PROFILE="$(gopro_profile)"
+echo ">> archive : $ARCHIVE"
+echo ">> server  : $VPS_TARGET"
+echo ">> profile : $PROFILE"
+echo
+
+# --- what the server holds, and at which profile -----------------------------
+# Keyed by basename-without-extension: the server tree and the archive tree don't
+# have identical layouts (historical loose files at the root), but clip names are
+# unique, which is what Jellyfin keys off anyway.
+echo ">> reading server manifest ..." >&2
+declare -A SRV_STAMP
+while IFS=$'\t' read -r key stamp; do
+  [[ -n "$key" ]] && SRV_STAMP["$key"]="$stamp"
+done < <(ssh "$SSH_HOST" bash -s -- "$GOPRO_DIR" <<'REMOTE'
+set -uo pipefail
+find "$1" -type f \( -iname '*.mp4' -o -iname '*.mov' \) -print0 |
+while IFS= read -r -d '' f; do
+  b="$(basename "$f")"; b="${b%.*}"
+  s="$(ffprobe -v error -show_entries format_tags=comment -of default=nw=1:nk=1 "$f" 2>/dev/null | head -1)"
+  printf '%s\t%s\n' "$b" "$s"
+done
+REMOTE
+)
+echo "   ${#SRV_STAMP[@]} clips on the server" >&2
+
+# --- what the archive holds ---------------------------------------------------
+echo ">> reading archive listing ..." >&2
+mapfile -t RELS < <(gopro_rclone_fast lsf -R --files-only "$ARCHIVE" | grep -iE '\.(mp4|mov)$' | sort)
+echo "   ${#RELS[@]} originals in the archive" >&2
+echo
+
+# --- decide what needs doing --------------------------------------------------
+TODO=(); reason_missing=0; reason_stale=0
+for rel in "${RELS[@]}"; do
+  [[ -n "$PAT" ]] && [[ "$rel" != *"$PAT"* ]] && continue
+  key="$(basename "$rel")"; key="${key%.*}"
+  cur="${SRV_STAMP[$key]-__absent__}"
+  if [[ "$cur" == "__absent__" ]]; then
+    TODO+=("$rel"); reason_missing=$((reason_missing+1))
+  elif [[ "$cur" != "$PROFILE" ]]; then
+    TODO+=("$rel"); reason_stale=$((reason_stale+1))
+  fi
+done
+
+echo "== $reason_missing missing from the server, $reason_stale at an older profile =="
+if [[ ${#TODO[@]} -eq 0 ]]; then echo "nothing to do — the server is up to date."; exit 0; fi
+
+if [[ $LIMIT -gt 0 && ${#TODO[@]} -gt $LIMIT ]]; then
+  TODO=("${TODO[@]:0:$LIMIT}")
+  echo "   (--limit $LIMIT → doing the first $LIMIT)"
+fi
+
+if [[ $DRY -eq 1 ]]; then
+  printf '   %s\n' "${TODO[@]}"
+  echo
+  echo "(dry run — nothing pulled, encoded or uploaded)"
+  exit 0
+fi
+
+# --- pull in batches, encode, upload -----------------------------------------
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/gopro-backfill.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+enc_ok=0; fail=0; total=${#TODO[@]}; n=0
+
+for ((i=0; i<total; i+=BATCH)); do
+  chunk=("${TODO[@]:i:BATCH}")
+  printf '\n>> pulling %d original(s) [%d-%d of %d] ...\n' \
+    "${#chunk[@]}" "$((i+1))" "$((i+${#chunk[@]}))" "$total"
+  printf '%s\n' "${chunk[@]}" > "$TMP/files.txt"
+  rm -rf "$TMP/in"; mkdir -p "$TMP/in"
+  if ! gopro_rclone_fast copy --files-from "$TMP/files.txt" --progress "$ARCHIVE" "$TMP/in"; then
+    echo "!! batch download failed — skipping this batch"; fail=$((fail+${#chunk[@]})); continue
+  fi
+
+  for rel in "${chunk[@]}"; do
+    n=$((n+1))
+    in="$TMP/in/$rel"
+    [[ -s "$in" ]] || { echo "!! missing after pull: $rel"; fail=$((fail+1)); continue; }
+    # Mirror the archive's own layout into staging (dated dirs stay dated; the
+    # historical flat files stay flat) so the server tree keeps matching it.
+    out="$STAGING/${rel%.*}.mp4"
+    mkdir -p "$(dirname "$out")"
+    printf 'enc   [%d/%d] %s (%s)\n' "$n" "$total" "$rel" "$(numfmt --to=iec "$(stat -c%s "$in")")"
+    if gopro_encode "$in" "$out"; then
+      enc_ok=$((enc_ok+1))
+      printf '      -> %s\n' "$(numfmt --to=iec "$(stat -c%s "$out")")"
+    else
+      echo "!! transcode FAILED: $rel"; rm -f "$out"; fail=$((fail+1))
+    fi
+    rm -f "$in"                       # free the 4K original immediately
+  done
+
+  # Upload after each batch so a killed run still leaves progress on the server.
+  if [[ $UPLOAD -eq 1 ]]; then
+    echo ">> uploading batch to VPS ..."
+    rsync -a --info=progress2 "$STAGING/" "$VPS_TARGET/" || echo "!! upload failed (staging keeps the files)"
+  fi
+done
+
+echo
+echo "== backfill: $enc_ok transcoded, $fail failed, of $total =="
+if [[ $UPLOAD -eq 1 && $enc_ok -gt 0 && -n "${JELLYFIN_URL:-}" && -n "${JELLYFIN_KEY:-}" ]]; then
+  echo ">> refreshing Jellyfin library ..."
+  curl -fsS -X POST "$JELLYFIN_URL/Library/Refresh" -H "X-Emby-Token: $JELLYFIN_KEY" \
+    && echo "   scan triggered" || echo "   (scan trigger failed — run: gopro scan)"
+fi
