@@ -1,0 +1,23 @@
+services:
+  gopro-share:
+    image: nginx:alpine
+    security_opt:
+      - no-new-privileges:true
+    container_name: "apps-gopro-share"
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    volumes:
+      - /srv/media/gopro-share:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gopro-share.rule=Host(`share.elyesghazel.ch`)"
+      - "traefik.http.routers.gopro-share.entrypoints=https"
+      - "traefik.http.routers.gopro-share.tls=true"
+      - "traefik.http.routers.gopro-share.tls.certresolver=cloudflare"
+      - "traefik.http.services.gopro-share.loadbalancer.server.port=80"
+
+networks:
+  traefik_proxy:
+    external: true

@@ -1,115 +1,102 @@
 #!/usr/bin/env bash
-# gopro-share — hand someone a GoPro clip via a private download link.
+# gopro-share — hand someone one clip or a whole set of them via a private link.
 #
-# Finds a clip that's already on the media server (the 1080p copy Jellyfin serves)
-# and exposes it at  https://share.elyesghazel.ch/<random-token>/<clip>  — no account,
-# no login, just click-and-download. Links auto-expire (default 14 days).
-# The 1080p copy is plenty for sending a mate a clip; pass --4k to serve the full
-# original from MyCloud instead (bigger, slower).
+# Builds a *collection*: every clip you name goes into one token dir on the server
+# and the recipient gets a dashboard at https://share.elyesghazel.ch/<token>/ —
+# thumbnails, in-browser playback, and per-clip download buttons. No account, no
+# login; the whole thing deletes itself when the link expires (default 14 days).
+#
+# Each clip gets a quality picker: the stream copy (1440p) and the full original
+# (4K), so the recipient chooses. Stream copies are hard-linked from the media dir
+# and cost no disk; originals are real copies, staged by the *server* pulling them
+# from the archive directly (~80 MB/s), so it's seconds per clip rather than a round
+# trip through this machine. Originals are staged by default -- pass --no-4k to skip
+# them for a big share, or set SHARE_4K=0 in gopro.conf to flip the default.
 #
 # Usage:
-#   gopro-share <name|pattern> [--all] [--4k] [--days N]
+#   gopro-share <name|pattern> [...] [--all] [--no-4k] [--days N] [--title T]
 #
 # Examples:
-#   gopro-share GX010598          # exact-ish clip name (as seen in Jellyfin)
-#   gopro-share wheelie           # fuzzy — matches "luan wheelie flyby.MP4"
-#   gopro-share GX0106 --all      # share every match
-#   gopro-share wheelie --days 3  # link dies after 3 days
-#   gopro-share GX010598 --4k     # full-res original instead of the 1080p copy
+#   gopro-share GX010598                      # one clip, stream + original
+#   gopro-share GX010598 GX010942 wheelie     # one link, three clips
+#   gopro-share 2026-07-25 --all              # everything from that shoot
+#   gopro-share 2026-07-25 --all --no-4k      # …stream copies only, instant
+#   gopro-share wheelie --days 3              # link dies after 3 days
 set -euo pipefail
 
-CONF="${XDG_CONFIG_HOME:-$HOME/.config}/gopro.conf"
-[[ -f "$CONF" ]] && source "$CONF"
-: "${VPS_TARGET:?set VPS_TARGET in $CONF}"      # e.g. server:/srv/media/gopro
+LIB="$(dirname "$(readlink -f "$0")")/_lib.sh"
+# shellcheck source=_lib.sh
+source "$LIB"
+gopro_conf || exit 1
+: "${VPS_TARGET:?set VPS_TARGET in gopro.conf}"
+
 SHARE_HOST="${SHARE_HOST:-share.elyesghazel.ch}"
 SHARE_DIR="${SHARE_DIR:-/srv/media/gopro-share}"
-EXPIRE_DAYS="${EXPIRE_DAYS:-14}"
+SERVER_BIN="${SHARE_SERVER_BIN:-/opt/docker/gopro-share}"
+DAYS="${EXPIRE_DAYS:-14}"
+TITLE="${SHARE_TITLE:-GoPro}"
+SSH_HOST="$(gopro_ssh_host)"; GOPRO_DIR="$(gopro_gopro_dir)"
 
-SSH_HOST="${VPS_TARGET%%:*}"      # server
-GOPRO_DIR="${VPS_TARGET#*:}"      # /srv/media/gopro
-
-FOURK=0; ALL=0; DAYS="$EXPIRE_DAYS"; ARGS=()
+FOURK="${SHARE_4K:-1}"; ALL=0; PATS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --all)  ALL=1; shift;;
-    --4k)   FOURK=1; shift;;
-    --days) DAYS="$2"; shift 2;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0;;
-    *) ARGS+=("$1"); shift;;
+    --all)   ALL=1; shift;;
+    --4k)    FOURK=1; shift;;          # kept: it used to be the opt-in flag
+    --no-4k) FOURK=0; shift;;
+    --days)  DAYS="$2"; shift 2;;
+    --title) TITLE="$2"; shift 2;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0;;
+    *) PATS+=("$1"); shift;;
   esac
 done
-[[ ${#ARGS[@]} -eq 0 ]] && { echo "usage: gopro share <name|pattern> [--all] [--4k] [--days N]"; exit 1; }
-pat="${ARGS[*]}"
+[[ ${#PATS[@]} -eq 0 ]] && { echo "usage: gopro share <name|pattern> [...] [--all] [--4k] [--days N] [--title T]"; exit 1; }
 
-# ---------------------------------------------------------------------------
-# The server does the actual work: locate matches, hard-link them under a random
-# token dir (same filesystem as /srv/media/gopro -> costs no extra space), stamp
-# an expiry, and print the URLs. Runs under bash even though the login shell is fish.
-# Args: $1 gopro_dir  $2 share_dir  $3 host  $4 pattern  $5 all  $6 days  [$7 src override]
-# ---------------------------------------------------------------------------
-remote_share() {
-  ssh "$SSH_HOST" bash -s -- "$GOPRO_DIR" "$SHARE_DIR" "$SHARE_HOST" "$pat" "$ALL" "$DAYS" "${1:-}" <<'REMOTE'
-set -euo pipefail
-GOPRO_DIR="$1"; SHARE_DIR="$2"; HOST="$3"; PAT="$4"; ALL="$5"; DAYS="$6"; SRC_OVERRIDE="${7:-}"
-
-if [[ -n "$SRC_OVERRIDE" ]]; then
-  # a single already-staged file (used by the --4k path)
-  hits=("$SRC_OVERRIDE"); base_dir="$(dirname "$SRC_OVERRIDE")"
-else
-  mapfile -t hits < <(find "$GOPRO_DIR" -type f \( -iname '*.mp4' -o -iname '*.mov' \) -printf '%P\n' \
-                       | grep -iF "$PAT" | sort || true)
-  base_dir="$GOPRO_DIR"
-fi
-n=${#hits[@]}
-if [[ $n -eq 0 ]]; then echo "no clip on the server matching '$PAT'" >&2; exit 3; fi
-if [[ $n -gt 1 && "$ALL" != "1" ]]; then
-  { echo "$n matches — narrow it down, or re-run with --all:"; printf '   %s\n' "${hits[@]}"; } >&2
-  exit 2
-fi
-
-mkdir -p "$SHARE_DIR"
-for rel in "${hits[@]}"; do
-  src="$base_dir/$rel"
-  [[ -f "$src" ]] || { echo "!! vanished: $rel" >&2; continue; }
-  token="$(python3 -c 'import secrets;print(secrets.token_hex(8))')"
-  # tidy the public filename (no spaces/odd chars) so the URL needs no escaping
-  clean="$(basename "$rel" | tr ' ' '_' | tr -cd 'A-Za-z0-9._-')"
-  dir="$SHARE_DIR/$token"
-  mkdir -p "$dir"
-  ln "$src" "$dir/$clean" 2>/dev/null || cp "$src" "$dir/$clean"
-  date -d "+$DAYS days" +%s > "$dir/.expires"
-  size="$(du -h "$dir/$clean" | cut -f1)"
-  printf 'https://%s/%s/%s   (%s, expires in %s days)\n' "$HOST" "$token" "$clean" "$size" "$DAYS"
-done
+# --- resolve every pattern against the media server ---------------------------
+echo ">> searching media server ..." >&2
+mapfile -t CATALOG < <(ssh "$SSH_HOST" bash -s -- "$GOPRO_DIR" <<'REMOTE'
+find "$1" -type f \( -iname '*.mp4' -o -iname '*.mov' \) -printf '%P\n' | sort
 REMOTE
-}
+)
+[[ ${#CATALOG[@]} -eq 0 ]] && { echo "no clips on the server at $GOPRO_DIR" >&2; exit 1; }
 
-if [[ $FOURK -eq 0 ]]; then
-  # --- 1080p: everything happens server-side, no transfer ---
-  echo ">> searching media server for '$pat' ..." >&2
-  remote_share
-else
-  # --- 4k: pull the original from MyCloud, push it up to the share server ---
-  : "${ARCHIVE:?set ARCHIVE in $CONF}"
-  command -v rclone >/dev/null || { echo "rclone not installed (needed for --4k)"; exit 1; }
-  echo ">> searching archive ($ARCHIVE) for '$pat' ..." >&2
-  mapfile -t hits < <(rclone lsf -R --files-only "$ARCHIVE" | grep -iE '\.(mp4|mov)$' | grep -iF "$pat" | sort || true)
-  n=${#hits[@]}
-  [[ $n -eq 0 ]]     && { echo "no original matching '$pat'"; exit 3; }
-  if [[ $n -gt 1 && $ALL -eq 0 ]]; then
-    echo "$n matches — narrow it down, or re-run with --all:"; printf '   %s\n' "${hits[@]}"; exit 2
-  fi
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-  for rel in "${hits[@]}"; do
-    echo ">> pulling 4k: $rel" >&2
-    rclone copy --progress "$ARCHIVE/$rel" "$tmp/"
-    f="$tmp/$(basename "$rel")"
-    token="$(python3 -c 'import secrets;print(secrets.token_hex(8))')"
-    clean="$(basename "$rel" | tr ' ' '_' | tr -cd 'A-Za-z0-9._-')"
-    echo ">> uploading to share server ..." >&2
-    ssh "$SSH_HOST" "mkdir -p '$SHARE_DIR/$token'"
-    rsync -a "$f" "$SSH_HOST:$SHARE_DIR/$token/$clean"
-    ssh "$SSH_HOST" "date -d '+$DAYS days' +%s > '$SHARE_DIR/$token/.expires'"
-    printf 'https://%s/%s/%s   (4k original, expires in %s days)\n' "$SHARE_HOST" "$token" "$clean" "$DAYS"
-  done
+SELECTED=()
+for pat in "${PATS[@]}"; do
+  mapfile -t hits < <(printf '%s\n' "${CATALOG[@]}" | grep -iF "$pat" || true)
+  case ${#hits[@]} in
+    0) echo "no clip matching '$pat'" >&2; exit 3;;
+    1) SELECTED+=("${hits[0]}");;
+    *) if [[ $ALL -eq 1 ]]; then SELECTED+=("${hits[@]}"); else
+         { echo "'$pat' matches ${#hits[@]} clips — narrow it, or add --all:"
+           printf '   %s\n' "${hits[@]}"; } >&2
+         exit 2
+       fi;;
+  esac
+done
+# de-dupe while keeping order (two patterns can hit the same clip)
+mapfile -t SELECTED < <(printf '%s\n' "${SELECTED[@]}" | awk '!seen[$0]++')
+
+echo ">> sharing ${#SELECTED[@]} clip(s):" >&2
+printf '   %s\n' "${SELECTED[@]}" >&2
+if [[ $FOURK -eq 1 ]]; then
+  echo ">> the server will also stage the 4K originals from ${SERVER_ARCHIVE:-${ARCHIVE:-}} (--no-4k to skip)" >&2
 fi
+
+# --- ship the server-side builder, then run it --------------------------------
+# rsync'd every run so the deployed copy can never drift from the dotfiles one.
+SRVSRC="$(dirname "$(readlink -f "$0")")/../../../server"
+if [[ -d "$SRVSRC" ]]; then
+  rsync -a "$SRVSRC/gopro-share-build" "$SRVSRC/gopro-share-page.py" "$SSH_HOST:$SERVER_BIN/" \
+    || echo "!! could not sync the builder — using whatever is deployed" >&2
+fi
+
+args=(--gopro "$GOPRO_DIR" --share "$SHARE_DIR" --host "$SHARE_HOST"
+      --days "$DAYS" --title "$TITLE")
+[[ $FOURK -eq 1 ]] && args+=(--4k --archive "${SERVER_ARCHIVE:-${ARCHIVE:-}}")
+
+# Feed the command in over stdin rather than as ssh argv: the server's login shell
+# is fish, and ssh hands it one flat string, so anything with a space (a --title, a
+# clip called "luan wheelie flyby.mp4") would get re-split. printf %q quotes for
+# bash, and `bash -s` is what actually reads it.
+ssh "$SSH_HOST" bash -s <<EOF
+exec $(printf '%q ' "$SERVER_BIN/gopro-share-build" "${args[@]}" -- "${SELECTED[@]}")
+EOF

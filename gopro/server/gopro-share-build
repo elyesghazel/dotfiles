@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# gopro-share-build — VPS side of `gopro share`. Builds one share collection:
+# a token dir holding hardlinks to the stream copies, poster thumbnails, the 4K
+# originals staged from the archive, and a generated index.html dashboard where
+# each clip carries a quality picker. Plain nginx serves it; expire.sh reaps it.
+#
+# Deployed to /opt/docker/gopro-share/gopro-share-build by `gopro share` itself
+# (rsync'd every run, so it can never drift from the dotfiles copy).
+#
+# Usage:
+#   gopro-share-build --gopro DIR --share DIR --host HOST --days N [--title T]
+#                     [--4k] [--archive REMOTE] -- <relpath> [<relpath> ...]
+
+set -euo pipefail
+
+GOPRO_DIR=""; SHARE_DIR=""; HOST=""; DAYS=14; TITLE="GoPro"; FOURK=0; ARCHIVE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --gopro)   GOPRO_DIR="$2"; shift 2;;
+    --share)   SHARE_DIR="$2"; shift 2;;
+    --host)    HOST="$2"; shift 2;;
+    --days)    DAYS="$2"; shift 2;;
+    --title)   TITLE="$2"; shift 2;;
+    --archive) ARCHIVE="$2"; shift 2;;
+    --4k)      FOURK=1; shift;;
+    --)        shift; break;;
+    *) echo "gopro-share-build: unknown arg $1" >&2; exit 1;;
+  esac
+done
+CLIPS=("$@")
+[[ ${#CLIPS[@]} -eq 0 ]] && { echo "no clips given" >&2; exit 1; }
+
+TOKEN="$(python3 -c 'import secrets;print(secrets.token_urlsafe(12).replace("-","x").replace("_","y"))')"
+DIR="$SHARE_DIR/$TOKEN"
+mkdir -p "$DIR/v" "$DIR/t"
+EXPIRES_AT=$(date -d "+$DAYS days" +%s)
+echo "$EXPIRES_AT" > "$DIR/.expires"
+
+human() { numfmt --to=iec --suffix=B --format='%.1f' "${1:-0}"; }
+sanitize() { basename "$1" | tr ' ' '_' | tr -cd 'A-Za-z0-9._-'; }
+
+# --- index the archive once ---------------------------------------------------
+# One listing for the whole share, not one per clip: `rclone lsf -R` is a network
+# round trip over the whole archive, and doing it inside the loop made an 8-clip
+# share pay for it eight times.
+declare -A ORIG_PATH ORIG_SIZE
+if [[ $FOURK -eq 1 && -n "$ARCHIVE" ]]; then
+  echo ">> indexing archive ..." >&2
+  while IFS=';' read -r sz path; do
+    [[ "$path" =~ \.(mp4|MP4|mov|MOV)$ ]] || continue
+    stem="$(basename "$path")"; stem="${stem%.*}"; key="${stem,,}"
+    [[ -n "${ORIG_PATH[$key]-}" ]] || { ORIG_PATH["$key"]="$path"; ORIG_SIZE["$key"]="$sz"; }
+  done < <(rclone lsf -R --files-only --format "sp" "$ARCHIVE" 2>/dev/null || true)
+  echo "   ${#ORIG_PATH[@]} originals indexed" >&2
+fi
+
+# Staged originals are real copies, unlike the hard-linked stream copies, so they
+# cost disk until the link expires. Stop before the volume gets tight.
+DISK_MARGIN=$(( ${DISK_MARGIN_GB:-20} * 1024 * 1024 * 1024 ))
+AVAIL=$(df -B1 --output=avail "$SHARE_DIR" | tail -1)
+
+# --- pass 1: stream copies, posters, and pick the originals to stage -----------
+CLEAN=(); THUMB=(); SIZE=(); VW=(); VH=(); DUR=(); OSRC=(); OCLEAN=()
+planned=0
+for rel in "${CLIPS[@]}"; do
+  src="$GOPRO_DIR/$rel"
+  [[ -f "$src" ]] || { echo "!! vanished: $rel" >&2; continue; }
+  clean="$(sanitize "$rel")"; [[ -z "$clean" ]] && clean="clip.mp4"
+
+  # hardlink (same filesystem as the media dir -> costs no disk)
+  ln -f "$src" "$DIR/v/$clean" 2>/dev/null || cp "$src" "$DIR/v/$clean"
+
+  read -r width height dur < <(ffprobe -v error -select_streams v:0 \
+      -show_entries stream=width,height -show_entries format=duration \
+      -of default=nw=1:nk=1 "$src" 2>/dev/null | paste -sd' ' -) || true
+  : "${width:=0}" "${height:=0}" "${dur:=0}"
+
+  # Poster frame a little way in, to skip the black/shaky first frame -- but the
+  # seek point has to come from the duration: seeking past the end of a short clip
+  # makes ffmpeg exit 0 having written nothing, so a plain `-ss 3 || fallback`
+  # silently leaves posterless cards. Retry on *file absence*, not exit code.
+  thumb="${clean%.*}.jpg"
+  seek="$(python3 -c 'import sys;d=float(sys.argv[1] or 0);print(f"{min(3.0, d/3):.2f}" if d>0.5 else "0")' "$dur")"
+  ffmpeg -hide_banner -loglevel error -y -ss "$seek" -i "$src" -frames:v 1 \
+      -vf "scale=640:-2" -q:v 5 "$DIR/t/$thumb" 2>/dev/null || true
+  [[ -s "$DIR/t/$thumb" ]] || ffmpeg -hide_banner -loglevel error -y -i "$src" \
+      -frames:v 1 -vf "scale=640:-2" -q:v 5 "$DIR/t/$thumb" 2>/dev/null || true
+  [[ -s "$DIR/t/$thumb" ]] || thumb=""
+
+  osrc=""; oclean=""
+  if [[ $FOURK -eq 1 && -n "$ARCHIVE" ]]; then
+    stem="$(basename "$rel")"; stem="${stem%.*}"
+    match="${ORIG_PATH[${stem,,}]-}"; want="${ORIG_SIZE[${stem,,}]-0}"
+    if [[ -z "$match" ]]; then
+      echo "!! no archive original for '$stem' — stream copy only" >&2
+    elif (( AVAIL - planned - want < DISK_MARGIN )); then
+      printf '!! skipping %s original (%s would leave under %sGB free)\n' \
+        "$stem" "$(human "$want")" "${DISK_MARGIN_GB:-20}" >&2
+    else
+      osrc="$match"; oclean="$(sanitize "$match")"; planned=$((planned+want))
+    fi
+  fi
+
+  CLEAN+=("$clean"); THUMB+=("$thumb"); SIZE+=("$(stat -c%s "$DIR/v/$clean")")
+  VW+=("$width"); VH+=("$height"); DUR+=("$dur"); OSRC+=("$osrc"); OCLEAN+=("$oclean")
+done
+[[ ${#CLEAN[@]} -eq 0 ]] && { rm -rf "$DIR"; echo "nothing staged" >&2; exit 1; }
+
+# --- pass 2: stage every original in ONE rclone run ---------------------------
+# --transfers only parallelises across *files*, so a per-clip rclone call leaves
+# most of the pipe idle (~20 MB/s vs ~83). One --files-from run for the whole
+# share is the difference between seconds and minutes on a multi-clip share.
+if [[ $planned -gt 0 ]]; then
+  mkdir -p "$DIR/4k"
+  list="$(mktemp)"; trap 'rm -f "$list"' EXIT
+  for o in "${OSRC[@]}"; do [[ -n "$o" ]] && printf '%s\n' "$o"; done > "$list"
+  printf '>> staging %d original(s), %s ...\n' "$(wc -l < "$list")" "$(human "$planned")" >&2
+  rclone copy --files-from "$list" --transfers 8 --checkers 16 --multi-thread-streams 4 \
+    "$ARCHIVE" "$DIR/4k/" 2>/dev/null || echo "!! staging had failures — cards fall back to the stream copy" >&2
+  # rclone preserves the archive's subdirs; flatten to the sanitized names the page links to
+  for i in "${!OSRC[@]}"; do
+    [[ -n "${OSRC[$i]}" ]] || continue
+    got="$DIR/4k/${OSRC[$i]}"
+    [[ -f "$got" && "$got" != "$DIR/4k/${OCLEAN[$i]}" ]] && mv -f "$got" "$DIR/4k/${OCLEAN[$i]}"
+  done
+  find "$DIR/4k" -mindepth 1 -type d -empty -delete
+fi
+
+# --- build the metadata -------------------------------------------------------
+ITEMS=()
+for i in "${!CLEAN[@]}"; do
+  oname=""; osize=0; oh=0
+  if [[ -n "${OCLEAN[$i]}" && -s "$DIR/4k/${OCLEAN[$i]}" ]]; then
+    oname="${OCLEAN[$i]}"; osize=$(stat -c%s "$DIR/4k/$oname")
+    oh="$(ffprobe -v error -select_streams v:0 -show_entries stream=height \
+            -of default=nw=1:nk=1 "$DIR/4k/$oname" 2>/dev/null | head -1)"; : "${oh:=0}"
+  fi
+  ITEMS+=("$(python3 - "${CLEAN[$i]}" "${THUMB[$i]}" "${SIZE[$i]}" "${VW[$i]}" "${VH[$i]}" \
+                      "${DUR[$i]}" "$oname" "$osize" "$oh" <<'PY'
+import json,sys
+c,t,s,w,h,d,on,os_,oh = sys.argv[1:10]
+print(json.dumps({"file":c,"thumb":t,"size":int(s),"w":int(w),"h":int(h),
+                  "dur":float(d or 0),"orig":on,"origSize":int(os_),"origH":int(oh or 0)}))
+PY
+)")
+done
+
+{ printf '{"title":%s,"expires":%s,"items":[' \
+    "$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$TITLE")" "$EXPIRES_AT"
+  printf '%s' "$(IFS=,; echo "${ITEMS[*]}")"
+  printf ']}' ; } > "$DIR/.meta.json"
+
+python3 "$(dirname "$(readlink -f "$0")")/gopro-share-page.py" "$DIR/.meta.json" > "$DIR/index.html"
+
+# Only the dirs that exist: a --no-4k share has no 4k/, and `du` failing on a
+# missing path takes the whole script down under `set -o pipefail`.
+tally=("$DIR/v"); [[ -d "$DIR/4k" ]] && tally+=("$DIR/4k")
+total=$(du -sb --dereference "${tally[@]}" | awk '{s+=$1} END{print s+0}')
+printf 'https://%s/%s/   (%d clip(s), %s, expires in %s days)\n' \
+  "$HOST" "$TOKEN" "${#CLEAN[@]}" "$(human "$total")" "$DAYS"
