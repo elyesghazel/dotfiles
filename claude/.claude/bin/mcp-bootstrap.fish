@@ -46,12 +46,17 @@ end
 # --- sumry: self-hosted finances, stdlib-python stdio server ----------------
 # The server logs in itself and caches the JWT, so the password is what gets
 # stored, not a token that expires every 30 days.
-if set -q SUMRY_EMAIL; and set -q SUMRY_PASSWORD
+set -l sumry_server $HOME/.claude/mcp/sumry/server.py
+if not test -f $sumry_server
+    # mcp/ is a directory stow only links on a restow, so a fresh `git pull`
+    # updates this script without the server it points at ever existing.
+    echo "  skip sumry ($sumry_server missing — run: stow -R -t ~ claude)"
+else if set -q SUMRY_EMAIL; and set -q SUMRY_PASSWORD
     _mcp_add sumry \
         -e SUMRY_API_URL="$SUMRY_API_URL" \
         -e SUMRY_EMAIL="$SUMRY_EMAIL" \
         -e SUMRY_PASSWORD="$SUMRY_PASSWORD" \
-        -t stdio -- python3 $HOME/.claude/mcp/sumry/server.py
+        -t stdio -- python3 $sumry_server
 else
     echo "  skip sumry (SUMRY_EMAIL / SUMRY_PASSWORD unset)"
 end
