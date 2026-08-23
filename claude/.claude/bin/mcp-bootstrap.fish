@@ -43,6 +43,19 @@ else
     echo "  skip excalidraw (EXCALIDRAW_MCP_URL / EXCALIDRAW_MCP_TOKEN unset)"
 end
 
+# --- sumry: self-hosted finances, stdlib-python stdio server ----------------
+# The server logs in itself and caches the JWT, so the password is what gets
+# stored, not a token that expires every 30 days.
+if set -q SUMRY_EMAIL; and set -q SUMRY_PASSWORD
+    _mcp_add sumry \
+        -e SUMRY_API_URL="$SUMRY_API_URL" \
+        -e SUMRY_EMAIL="$SUMRY_EMAIL" \
+        -e SUMRY_PASSWORD="$SUMRY_PASSWORD" \
+        -t stdio -- python3 $HOME/.claude/mcp/sumry/server.py
+else
+    echo "  skip sumry (SUMRY_EMAIL / SUMRY_PASSWORD unset)"
+end
+
 # --- markitdown: local stdio server, no secrets -----------------------------
 if command -q markitdown-mcp
     _mcp_add markitdown -t stdio markitdown-mcp

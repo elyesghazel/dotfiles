@@ -73,3 +73,16 @@ tool with `skill: "excalidraw-boards"` before answering. Same when I paste a
 
 This is the default for anything visual, and it wins over `drawio-skill`. Only reach for
 `drawio-skill` when I explicitly say draw.io, or I need an exported PNG/SVG/PDF file.
+
+# sumry
+
+- **sumry** (`~/.claude/skills/sumry/SKILL.md`) - my self-hosted finances at
+  `sumry.elyesghazel.ch`, via the `sumry` MCP server. Trigger: `/sumry`
+
+Whenever I mention **money, a balance, an account** (PostFinance, Revolut, Sparkonto,
+Portemonnaie / Cash), **what I spent or earned, whether I can afford something, budgets**, or
+ask you to **log, book, record or correct a transaction** — invoke the Skill tool with
+`skill: "sumry"` before answering. Bare statements count: "spent 12.50 on lunch", "got paid",
+"PostFinance is at 334.50", "add 460 to cash".
+
+Read with `sumry_accounts` / `sumry_summary` rather than guessing from memory — balances move.
