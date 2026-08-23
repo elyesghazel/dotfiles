@@ -18,6 +18,10 @@ import urllib.request
 DEFAULT_BASE_URL = "https://sumry-api.elyesghazel.ch"
 TIMEOUT_SECONDS = 20
 
+# Cloudflare fronts the API and bans urllib's default signature outright
+# (error 1010), so identify honestly rather than going out as Python-urllib.
+USER_AGENT = "sumry-mcp/1.0 (+https://sumry.elyesghazel.ch)"
+
 
 class SumryError(RuntimeError):
     """An API call failed in a way worth showing the user verbatim."""
@@ -71,7 +75,7 @@ class SumryClient:
     def _raw_request(self, method: str, path: str, payload=None, token: str | None = None):
         url = f"{self.base_url}{path}"
         data = None
-        headers = {"Accept": "application/json"}
+        headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -132,11 +136,16 @@ class _HttpFailure(Exception):
 
 
 def _describe(exc: _HttpFailure) -> str:
-    hint = {
-        401: "Sumry rejected the credentials (401).",
-        403: "That record belongs to another user (403).",
-        404: "Not found (404) — check the account id or category label.",
-    }.get(exc.status, f"Sumry returned HTTP {exc.status}.")
+    # A 403 is ambiguous: Spring sends one for another user's record, but so does
+    # the Cloudflare in front of it when it dislikes the request. Say which.
+    if exc.status == 403 and "cloudflare" in exc.detail.lower():
+        hint = "Cloudflare blocked the request before it reached Sumry (403)."
+    else:
+        hint = {
+            401: "Sumry rejected the credentials (401).",
+            403: "That record belongs to another user (403).",
+            404: "Not found (404) — check the account id or category label.",
+        }.get(exc.status, f"Sumry returned HTTP {exc.status}.")
     # Spring's error body is JSON with a "message"; fall back to the raw text.
     try:
         parsed = json.loads(exc.detail)
