@@ -84,6 +84,7 @@ nwg-dock-hyprland
 nwg-drawer
 nwg-look
 obsidian
+openresolv
 otf-font-awesome
 papirus-icon-theme
 pavucontrol

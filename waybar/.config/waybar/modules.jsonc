@@ -138,7 +138,7 @@
     },
 
     "battery": {
-        "interval": 20,
+        "interval": 5,
         "full-at": 100,
         "tooltip": true,
         "format-full": "",

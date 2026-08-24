@@ -1,8 +1,5 @@
 {
-  "model": "opus",
-  "effortLevel": "high",
-  "theme": "dark",
-  "agentPushNotifEnabled": true,
+  "model": "sonnet",
   "statusLine": {
     "type": "command",
     "command": "codecash render # codecash-statusline",
@@ -18,5 +15,8 @@
         "repo": "jarrodwatts/claude-hud"
       }
     }
-  }
+  },
+  "effortLevel": "high",
+  "theme": "dark",
+  "agentPushNotifEnabled": true
 }
