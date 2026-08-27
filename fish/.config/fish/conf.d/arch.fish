@@ -7,5 +7,5 @@ fish_add_path $HOME/.platformio/penv/bin
 
 # abbreviations
 abbr -a hyperc "nano ~/.config/hypr/hyprland.conf"
-abbr -a start_wg "sudo systemctl start wg-quick@wg0"
-abbr -a stop_wg "sudo systemctl stop wg-quick@wg0"
+abbr -a start_wg "vpn up"
+abbr -a stop_wg "vpn down"

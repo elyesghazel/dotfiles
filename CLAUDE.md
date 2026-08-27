@@ -99,6 +99,12 @@ Custom functions live in `fish/.config/fish/functions/`. Notable ones:
 | `npr` | Interactive new project (Swisscom / business / education paths) |
 | `npu` | Create and push a new public GitHub repo |
 | `update_all` | System-wide update (pacman → AUR → pnpm → dotsync) |
+| `vpn [up\|down\|status]` | Toggle the WireGuard tunnel; bare `vpn` flips it |
+
+`wg-quick@wg0` is deliberately **not** enabled at boot — `vpn` brings the tunnel up on
+demand instead. `vpn status` reads `ip` rather than `wg show` so it never triggers a sudo
+prompt; it only shows peer/handshake detail when the sudo timestamp is already valid.
+Override the interface with `$WG_IFACE` or `vpn up <iface>`.
 
 Environment-specific fish config goes in `fish/.config/fish/conf.d/arch.fish` or `conf.d/wsl.fish`.
 
