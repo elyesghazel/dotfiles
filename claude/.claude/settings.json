@@ -1,5 +1,5 @@
 {
-  "model": "sonnet",
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "codecash render # codecash-statusline",
