@@ -25,3 +25,7 @@ _darcs
 #   repo -> home  by install.sh
 #   home -> repo  by the dotsync fish function
 settings\.json
+
+# secrets.fish is gitignored and lives directly in ~/.claude; never link it
+# from the repo (secrets.fish.example is still stowed).
+secrets\.fish
