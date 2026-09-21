@@ -36,6 +36,7 @@ firefox
 fish
 flatpak
 fprintd
+fwupd
 ghostty
 git
 github-cli

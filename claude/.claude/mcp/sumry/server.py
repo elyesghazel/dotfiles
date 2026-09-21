@@ -156,7 +156,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "transaction_id": {"type": "string", "description": "Full UUID of the transaction."},
+                "transaction_id": {"type": "string", "description": "Transaction id — the 8-char id from the transactions table or the full UUID."},
                 "amount": {"type": "number"},
                 "description": {"type": "string"},
                 "category": {"type": "string"},
@@ -172,7 +172,7 @@ TOOLS = [
         "description": "Delete a transaction and revert its effect on the balance.",
         "inputSchema": {
             "type": "object",
-            "properties": {"transaction_id": {"type": "string", "description": "Full UUID."}},
+            "properties": {"transaction_id": {"type": "string", "description": "The 8-char id from the transactions table or the full UUID."}},
             "required": ["transaction_id"],
         },
         "handler": tools.delete_transaction,

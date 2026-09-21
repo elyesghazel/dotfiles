@@ -18,5 +18,6 @@
   },
   "effortLevel": "high",
   "theme": "dark",
+  "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true
 }

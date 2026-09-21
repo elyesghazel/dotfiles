@@ -47,6 +47,21 @@ def table(headers: list[str], rows: list[list[str]], align_right: set[int] | Non
 # ------------------------------------------------------------------ helpers
 
 
+def resolve_transaction_id(client: SumryClient, ref: str) -> str:
+    """Accept a full UUID or the 8-char prefix the transactions table prints."""
+    needle = (ref or "").strip().lower()
+    if not needle:
+        raise SumryError("No transaction id given.")
+    if len(needle) >= 32:
+        return needle
+    matches = [t["id"] for t in (client.get("/api/transactions/") or []) if str(t.get("id", "")).lower().startswith(needle)]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise SumryError(f"No transaction starts with `{ref}`.")
+    raise SumryError(f"`{ref}` matches {len(matches)} transactions — pass more characters.")
+
+
 def _accounts(client: SumryClient) -> list[dict]:
     return client.get("/api/users/accounts/") or []
 
@@ -335,6 +350,7 @@ def update_transaction(
     if not payload:
         raise SumryError("Nothing to update — pass at least one field.")
 
+    transaction_id = resolve_transaction_id(client, transaction_id)
     updated = client.put(f"/api/transactions/{transaction_id}", payload)
     return (
         f"Updated transaction `{transaction_id[:8]}`: "
@@ -344,6 +360,7 @@ def update_transaction(
 
 
 def delete_transaction(client: SumryClient, transaction_id, **_) -> str:
+    transaction_id = resolve_transaction_id(client, transaction_id)
     client.delete(f"/api/transactions/{transaction_id}")
     return f"Deleted transaction `{transaction_id[:8]}`; the account balance was reverted."
 
