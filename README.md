@@ -26,6 +26,8 @@ dotfiles/
 ├── kitty/              terminal emulator
 ├── starship/           shell prompt
 ├── vicinae/            launcher & clipboard
+├── systemd/            user units (taildrop-inbox)
+├── docs/               how the non-obvious bits work (WoL, device transfer)
 ├── spicetify/          Spotify theming
 ├── claude/             Claude Code — global CLAUDE.md, settings, skills, MCP bootstrap
 └── gopro/              GoPro → Jellyfin streaming pipeline (NVENC transcode + scripts)
@@ -212,6 +214,9 @@ packages/update.sh diff     # compare system vs lists
 | `npr`      | Create a new local project                       |
 | `npu`      | Create a new GitHub repo                         |
 | `update_all` | Update pacman + AUR + other tools              |
+| `send`     | Taildrop files to a tailnet device — [docs](docs/device-transfer.md) |
+| `clip`     | Push text to the phone via ntfy — [docs](docs/device-transfer.md) |
+| `wake`     | Wake the desktop over WoL via the Pi — [docs](docs/wake-on-lan.md) |
 
 ---
 
