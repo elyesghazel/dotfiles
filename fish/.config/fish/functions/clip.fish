@@ -36,7 +36,7 @@ function clip --description 'Send text to the phone via ntfy'
 
     printf '%s' "$text" | curl -fsS -o /dev/null \
         -H "Authorization: Bearer $NTFY_TOKEN" \
-        -H "Title: clip from "(hostname) \
+        -H "Title: clip from $hostname" \
         -H "Tags: clipboard" \
         --data-binary @- "$NTFY_URL/$NTFY_TOPIC"
     and echo "clip: sent "(string length -- "$text")" chars"
