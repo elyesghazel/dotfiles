@@ -1,0 +1,17 @@
+# Drain the Taildrop inbox into ~/tailscale-files as files arrive.
+# The inbox itself (/var/lib/tailscale/files/<user>/) is root-owned and holds
+# half-written transfers, so it cannot simply be symlinked into $HOME.
+# Needs:  sudo tailscale set --operator=$USER   (once per machine)
+# Enable: systemctl --user enable --now taildrop-inbox
+[Unit]
+Description=Move received Taildrop files into ~/tailscale-files
+After=network-online.target
+
+[Service]
+ExecStartPre=/usr/bin/mkdir -p %h/tailscale-files
+ExecStart=/usr/bin/tailscale file get --loop --wait --conflict=rename %h/tailscale-files
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

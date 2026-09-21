@@ -31,7 +31,8 @@ fi
 
 echo "==> Linking configs with stow"
 cd "$DOTFILES"
-stow fish kitty hypr waybar dunst starship vicinae claude
+stow fish kitty hypr waybar dunst starship vicinae claude systemd
+systemctl --user daemon-reload && systemctl --user enable --now taildrop-inbox 2>/dev/null || true
 
 echo "==> Installing Claude settings.json"
 # Not stowed: Claude Code rewrites this file atomically, which would replace a
