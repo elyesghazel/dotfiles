@@ -48,9 +48,11 @@ subcommand takes `--format json`, and `--log-level error` hides a harmless
 | Flag, priority, notes on create | `icloud reminders create --list-id … --title … --flagged --priority 1 --desc …` |
 | Alarms, recurrence, subtasks | `icloud reminders alarm/recurrence --help`, `create --parent-reminder-id` |
 
-Due dates must carry an offset: pyicloud reads a naive time as **UTC**, so
-`2026-10-01T09:00` lands at 11:00 in Zurich. Build them with
-`date -d "<when>" --iso-8601=seconds`. Apple priorities: 1 high, 5 medium, 9 low, 0 none.
+Due dates need two things. First, an offset: pyicloud reads a naive time as **UTC**, so
+`2026-10-01T09:00` lands at 11:00 in Zurich. Build it with
+`date -d "<when>" --iso-8601=seconds`. Second, `--time-zone Europe/Zurich` (or whatever
+`timedatectl show -p Timezone --value` says). Without one, the iPhone shows the reminder at
+its UTC time, two hours early. Apple priorities: 1 high, 5 medium, 9 low, 0 none.
 
 Ask before deleting — there is no undo. Completing is fine without asking when the user
 clearly named the item.
