@@ -112,6 +112,11 @@ Override the interface with `$WG_IFACE` or `vpn up <iface>`.
 "Reminders"). pyicloud reads a naive `--due-date` as UTC, so `remind` always sends a local
 offset from `date -d`.
 
+`fish_variables` is **not** tracked. It holds per-machine universal variables — the
+`fish_color_*` scheme, key bindings, `__fish_initialized` — so sharing it meant a fresh
+`stow fish` replaced the local colour scheme with whichever machine committed last.
+Set colours with `set -U` on each box; the file stays local everywhere.
+
 Environment-specific fish config goes in `fish/.config/fish/host/arch.fish` or
 `host/wsl.fish`, picked by the `$WSL_DISTRO_NAME` check in `config.fish`. They live
 outside `conf.d/` on purpose: fish auto-sources every file in `conf.d/` regardless of

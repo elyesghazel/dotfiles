@@ -13,3 +13,8 @@ gopro/.config/gopro.conf
 # Claude Code account-level skill cache, synced into ~/.claude/skills by the client.
 # Re-downloadable, 4.5M of it; lands in the repo only because skills/ is stowed as a dir.
 claude/.claude/skills/synced/
+
+# Per-machine fish universal variables (colors, key bindings, __fish_initialized).
+# Tracking it meant a fresh `stow fish` overwrote the local color scheme with another
+# machine's snapshot. The file stays on every box, it just is not shared.
+fish/.config/fish/fish_variables
