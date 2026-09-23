@@ -12,18 +12,30 @@
 # Session handling lives in the icloud wrapper (icloud.fish).
 
 # Runs an icloud query and prints its JSON. Retries once: iCloud now and then
-# answers with an empty body, and json.load on "" is a traceback, not an error.
+# answers with an empty or non-JSON body, and json.load on that is a traceback.
 function __remind_json
     set -l err (mktemp)
     for attempt in 1 2
         set -l out (icloud $argv --format json --log-level error 2>$err | string collect)
         if test $pipestatus[1] -eq 0 -a -n "$out"
-            rm -f $err
-            printf '%s\n' $out
-            return 0
+            # Non-JSON on stdout would reach json.load as a bare traceback.
+            if string match -qr '^\s*[\[{]' -- $out
+                rm -f $err
+                printf '%s\n' $out
+                return 0
+            end
+            printf '%s\n' $out >$err
         end
     end
-    echo "remind: iCloud gave no answer - "(string join ' ' -- (tail -n3 $err)) >&2
+    # Keep the raw reply: this has only ever failed under vicinae, never in a terminal.
+    set -l log ~/.local/state/pyicloud/remind-error.log
+    begin
+        date --iso-8601=seconds
+        echo "icloud $argv"
+        cat $err
+        echo
+    end >>$log
+    echo "remind: iCloud gave no usable answer - "(string join ' ' -- (tail -n3 $err))" (raw reply in $log)" >&2
     rm -f $err
     return 1
 end
