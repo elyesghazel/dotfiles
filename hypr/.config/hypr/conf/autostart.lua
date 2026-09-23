@@ -21,6 +21,7 @@ hl.on("hyprland.start", function()
     -- autologin (sddm) → lock immediately; remote unlock: pkill -USR1 hyprlock
     hl.exec_cmd("hyprlock")
     hl.exec_cmd("hypridle")
+    hl.exec_cmd("poweralertd")
     hl.exec_cmd("quickshell -p /home/elyes/apps/qs-hyprview")
     hl.exec_cmd("sudo rc-service claude-cowork start")
 end)

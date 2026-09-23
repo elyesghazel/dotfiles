@@ -16,6 +16,7 @@ onedrive-abraunegg
 onlyoffice-bin
 p3x-onenote
 peaclock
+poweralertd
 python-pywal16
 spicetify-cli
 spicetify-cli-debug
