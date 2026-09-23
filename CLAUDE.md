@@ -112,7 +112,11 @@ Override the interface with `$WG_IFACE` or `vpn up <iface>`.
 "Reminders"). pyicloud reads a naive `--due-date` as UTC, so `remind` always sends a local
 offset from `date -d`.
 
-Environment-specific fish config goes in `fish/.config/fish/conf.d/arch.fish` or `conf.d/wsl.fish`.
+Environment-specific fish config goes in `fish/.config/fish/host/arch.fish` or
+`host/wsl.fish`, picked by the `$WSL_DISTRO_NAME` check in `config.fish`. They live
+outside `conf.d/` on purpose: fish auto-sources every file in `conf.d/` regardless of
+that check, so while they lived there both ran on every machine — the Arch box was
+picking up WSL's `DOCKER_CONFIG`, `NODE_OPTIONS` and `nvm use latest`.
 
 ## GoPro pipeline
 

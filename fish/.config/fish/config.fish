@@ -4,9 +4,9 @@ set -gx EDITOR "code --wait"
 
 # 2. paths and systems
 if test -n "$WSL_DISTRO_NAME"
-    source ~/.config/fish/conf.d/wsl.fish
+    source ~/.config/fish/host/wsl.fish
 else
-    source ~/.config/fish/conf.d/arch.fish
+    source ~/.config/fish/host/arch.fish
 end
 
 # 3. abbreviations
