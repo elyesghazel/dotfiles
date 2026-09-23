@@ -11,6 +11,23 @@
 # Default list is the first one iCloud returns; pin another with $REMIND_LIST_ID.
 # Session handling lives in the icloud wrapper (icloud.fish).
 
+# Runs an icloud query and prints its JSON. Retries once: iCloud now and then
+# answers with an empty body, and json.load on "" is a traceback, not an error.
+function __remind_json
+    set -l err (mktemp)
+    for attempt in 1 2
+        set -l out (icloud $argv --format json --log-level error 2>$err | string collect)
+        if test $pipestatus[1] -eq 0 -a -n "$out"
+            rm -f $err
+            printf '%s\n' $out
+            return 0
+        end
+    end
+    echo "remind: iCloud gave no answer - "(string join ' ' -- (tail -n3 $err)) >&2
+    rm -f $err
+    return 1
+end
+
 function remind --description 'Apple Reminders: add, list, complete'
     # pyicloud's own venv has Python for JSON; there is no jq on this box.
     set -l py ~/.local/share/uv/tools/pyicloud/bin/python
@@ -33,8 +50,8 @@ for r in sorted(rows, key=key):
 "
 
     if test (count $argv) -eq 0
-        set -l rows (icloud reminders list --format json --log-level error | $py -c $list_open)
-        or return 1
+        set -l json (__remind_json reminders list); or return 1
+        set -l rows (printf '%s\n' $json | $py -c $list_open); or return 1
         if test (count $rows) -eq 0
             echo "remind: nothing open"
             return 0
@@ -51,8 +68,8 @@ for r in sorted(rows, key=key):
             echo "remind: --done takes the number from the listing" >&2
             return 1
         end
-        set -l rows (icloud reminders list --format json --log-level error | $py -c $list_open)
-        or return 1
+        set -l json (__remind_json reminders list); or return 1
+        set -l rows (printf '%s\n' $json | $py -c $list_open); or return 1
         if test $argv[2] -lt 1 -o $argv[2] -gt (count $rows)
             echo "remind: no reminder $argv[2]" >&2
             return 1
@@ -94,8 +111,8 @@ for r in sorted(rows, key=key):
 
     set -l list_id $REMIND_LIST_ID
     if test -z "$list_id"
-        set list_id (icloud reminders lists --format json --log-level error \
-            | $py -c 'import json,sys; print(next(l["id"] for l in json.load(sys.stdin) if not l["deleted"]))')
+        set -l json (__remind_json reminders lists); or return 1
+        set list_id (printf '%s\n' $json | $py -c 'import json,sys; print(next(l["id"] for l in json.load(sys.stdin) if not l["deleted"]))')
         or return 1
     end
 
