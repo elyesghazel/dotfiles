@@ -23,6 +23,11 @@ Elyes' self-hosted finance app. The `sumry` MCP server talks to the Spring backe
 | `sumry_update` / `sumry_delete` | Correct or remove a transaction |
 | `sumry_budgets` | Limits and how much is spent against them |
 | `sumry_create_account` | New account |
+| `sumry_planned` | Recurring / future plans (rent, Lohn, subscriptions, savings transfers) with next date and ids |
+| `sumry_upcoming` | Dated occurrences in the next N days, plus overdue ones never booked |
+| `sumry_safe_to_spend` | Balance minus planned outgoings until the next planned income, with a per-day figure |
+| `sumry_plan_create` / `sumry_plan_update` / `sumry_plan_delete` | Manage plans; `active=false` pauses instead of deleting |
+| `sumry_plan_book` | Book a plan's next due occurrence as a real transaction |
 
 Accounts resolve by name, so pass `"cash"` or `"PostFinance"` — never make the user find a UUID.
 
@@ -52,6 +57,15 @@ honest expense or income. Read the current balance, then `sumry_reconcile` to
 
 Only ask before writing when something is genuinely ambiguous — the amount, which account, or
 which of log/reconcile/transfer applies. A clear "spent 8 on a kebab" just gets logged.
+
+## Planned transactions
+
+Plans are not transactions until an occurrence is booked. `auto` plans book themselves at
+00:15 / 09:15 Zurich time; manual ones only show up as due (and as **overdue** in
+`sumry_upcoming` once the date passes). When the user says they paid a planned bill, use
+`sumry_plan_book` — not `sumry_log` — so the plan's watermark advances and it stops showing
+as overdue. "Can I afford X" → `sumry_safe_to_spend` first; it already subtracts what is
+committed before the next salary.
 
 ## Answering money questions
 
