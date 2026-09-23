@@ -29,6 +29,15 @@ if ! command -v claude &> /dev/null; then
     fi
 fi
 
+echo "==> Installing pyicloud (Apple Reminders for remind / icloud)"
+# 2.7.0 imports rich without declaring it. Login is interactive (password + 2FA):
+#   icloud auth login --username <apple id>
+if command -v uv &> /dev/null; then
+    uv tool install 'pyicloud[cli]' --with rich
+else
+    echo "    skipped — uv not installed"
+fi
+
 echo "==> Linking configs with stow"
 cd "$DOTFILES"
 stow fish kitty hypr waybar dunst starship vicinae claude systemd
