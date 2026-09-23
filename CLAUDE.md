@@ -100,11 +100,17 @@ Custom functions live in `fish/.config/fish/functions/`. Notable ones:
 | `npu` | Create and push a new public GitHub repo |
 | `update_all` | System-wide update (pacman → AUR → pnpm → dotsync) |
 | `vpn [up\|down\|status]` | Toggle the WireGuard tunnel; bare `vpn` flips it |
+| `remind [text] [@ when]` | Apple Reminders via pyicloud: bare lists, `--done <n>` completes |
+| `icloud` | pyicloud CLI with the session in `~/.local/state/pyicloud` (not `/tmp`) |
 
 `wg-quick@wg0` is deliberately **not** enabled at boot — `vpn` brings the tunnel up on
 demand instead. `vpn status` reads `ip` rather than `wg show` so it never triggers a sudo
 prompt; it only shows peer/handshake detail when the sudo timestamp is already valid.
 Override the interface with `$WG_IFACE` or `vpn up <iface>`.
+
+`remind` has vicinae front-ends in `vicinae/.local/share/vicinae/scripts/` ("Remind",
+"Reminders"). pyicloud reads a naive `--due-date` as UTC, so `remind` always sends a local
+offset from `date -d`.
 
 Environment-specific fish config goes in `fish/.config/fish/conf.d/arch.fish` or `conf.d/wsl.fish`.
 
