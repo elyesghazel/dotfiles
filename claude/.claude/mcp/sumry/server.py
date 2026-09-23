@@ -199,6 +199,103 @@ TOOLS = [
         },
         "handler": tools.create_account,
     },
+    {
+        "name": "sumry_planned",
+        "description": "List planned (recurring or one-off future) transactions — rent, salary, subscriptions, savings transfers — with frequency, next date, monthly equivalent and a short id the other plan tools accept.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"include_inactive": {"type": "boolean", "description": "Include paused plans."}},
+        },
+        "handler": tools.list_planned,
+    },
+    {
+        "name": "sumry_upcoming",
+        "description": "Dated occurrences of every active plan in the next N days, plus overdue ones (due but never booked). Use for 'what's coming up' or 'what bills are due'.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "days": {"type": "integer", "description": "How far ahead, 1–366. Default 30."},
+                "account": _ACCOUNT,
+            },
+        },
+        "handler": tools.upcoming_planned,
+    },
+    {
+        "name": "sumry_safe_to_spend",
+        "description": "How much can be spent before the next planned income: balance minus planned expenses (and, for one account, transfers out) due until then, with a per-day figure. Use for 'can I afford X'.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"account": {**_ACCOUNT, "description": "Limit to one account. Default: all accounts."}},
+        },
+        "handler": tools.safe_to_spend,
+    },
+    {
+        "name": "sumry_plan_create",
+        "description": "Plan a recurring or one-off future transaction. Pass category for an income/expense (the category's type sets the direction) or to_account for a planned transfer. A start date in the past treats earlier occurrences as already in the history.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "e.g. 'Miete', 'Lohn', 'Spotify'."},
+                "amount": {"type": "number", "description": "Positive amount in CHF."},
+                "frequency": {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "ONCE"]},
+                "start_date": {"type": "string", "description": "YYYY-MM-DD of the first occurrence; later ones step from it."},
+                "account": _ACCOUNT,
+                "category": {"type": "string", "description": "Exact category label. Omit for a transfer."},
+                "to_account": {**_ACCOUNT, "description": "Destination account — makes this a planned transfer."},
+                "end_date": {"type": "string", "description": "YYYY-MM-DD of the last possible occurrence. Omit for indefinite."},
+                "description": {"type": "string", "description": "Note written onto each booked occurrence. Defaults to the name."},
+                "auto_book": {"type": "boolean", "description": "Book automatically when due. Default false (reminder only)."},
+            },
+            "required": ["name", "amount", "frequency", "start_date", "account"],
+        },
+        "handler": tools.create_plan,
+    },
+    {
+        "name": "sumry_plan_update",
+        "description": "Change a plan. Pass only the fields that change; active=false pauses it without deleting.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "8-char id from sumry_planned, full UUID, or the plan's name."},
+                "name": {"type": "string"},
+                "amount": {"type": "number"},
+                "frequency": {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "ONCE"]},
+                "start_date": {"type": "string"},
+                "end_date": {"type": "string", "description": "YYYY-MM-DD, or an empty string to make it run indefinitely."},
+                "account": _ACCOUNT,
+                "category": {"type": "string", "description": "Switches a transfer plan to income/expense."},
+                "to_account": {**_ACCOUNT, "description": "Switches the plan to a transfer into this account."},
+                "description": {"type": "string"},
+                "auto_book": {"type": "boolean"},
+                "active": {"type": "boolean"},
+            },
+            "required": ["plan_id"],
+        },
+        "handler": tools.update_plan,
+    },
+    {
+        "name": "sumry_plan_book",
+        "description": "Book a plan's next due occurrence now as a real transaction (for manual, non-auto plans, or paying early). Books today if paid early.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "8-char id, full UUID, or the plan's name."},
+                "date": {"type": "string", "description": "YYYY-MM-DD booking date override."},
+            },
+            "required": ["plan_id"],
+        },
+        "handler": tools.book_plan,
+    },
+    {
+        "name": "sumry_plan_delete",
+        "description": "Delete a plan for good. Already-booked transactions stay. Prefer sumry_plan_update active=false to pause.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"plan_id": {"type": "string", "description": "8-char id, full UUID, or the plan's name."}},
+            "required": ["plan_id"],
+        },
+        "handler": tools.delete_plan,
+    },
 ]
 
 HANDLERS = {t["name"]: t["handler"] for t in TOOLS}
