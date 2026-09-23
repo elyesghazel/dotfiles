@@ -9,3 +9,7 @@ hypr/.config/hypr/conf/host.lua
 
 # gopro: real config holds the Jellyfin API key — only the .example is tracked
 gopro/.config/gopro.conf
+
+# Claude Code account-level skill cache, synced into ~/.claude/skills by the client.
+# Re-downloadable, 4.5M of it; lands in the repo only because skills/ is stowed as a dir.
+claude/.claude/skills/synced/
