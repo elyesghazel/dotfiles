@@ -86,3 +86,12 @@ ask you to **log, book, record or correct a transaction** — invoke the Skill t
 "PostFinance is at 334.50", "add 460 to cash".
 
 Read with `sumry_accounts` / `sumry_summary` rather than guessing from memory — balances move.
+
+# apple-reminders
+
+- **apple-reminders** (`~/.claude/skills/apple-reminders/SKILL.md`) - my iCloud Reminders
+  via pyicloud and the `remind` / `icloud` fish functions. Trigger: `/apple-reminders`
+
+Whenever I say **"remind me"**, ask to **add, list, complete or delete a reminder / to-do**,
+or ask **what's on my reminders** — invoke the Skill tool with `skill: "apple-reminders"`
+before answering.

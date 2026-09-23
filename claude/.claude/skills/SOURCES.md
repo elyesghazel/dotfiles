@@ -33,7 +33,8 @@ first.
 
 ## Local
 
-`drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards`, `video-cut` —
+`drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards`, `video-cut`,
+`apple-reminders` —
 maintained in this repo. `excalidraw-boards` and `markitdown` depend on the MCP servers registered by
 `../bin/mcp-bootstrap.fish`.
 
@@ -41,3 +42,7 @@ maintained in this repo. `excalidraw-boards` and `markitdown` depend on the MCP 
 encodes what that edit actually cost to get right: transcribe before cutting, watch the
 contact sheets, keep the music bed out of the render. Its `scripts/` are the generalised
 versions of the ones in that project.
+
+`apple-reminders` drives the `remind` and `icloud` fish functions, which need pyicloud
+installed as a uv tool (`install.sh` does it) and a one-time interactive
+`icloud auth login`.
