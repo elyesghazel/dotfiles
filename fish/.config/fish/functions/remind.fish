@@ -79,12 +79,17 @@ for r in sorted(rows, key=key):
 
     set -l due_args
     if test -n "$when"
+        # date -d rejects the Swiss "18.00"; make it "18:00".
+        set when (string replace -ra '\b(\d{1,2})\.(\d{2})\b' '$1:$2' -- "$when")
         set -l due (date -d "$when" --iso-8601=seconds 2>/dev/null)
         if test -z "$due"
             echo "remind: can't read the time '$when'" >&2
             return 1
         end
-        set due_args --due-date $due
+        # Without a TimeZone the iPhone shows the UTC wall clock (18:00 -> 16:00).
+        set -l tz (timedatectl show -p Timezone --value 2>/dev/null)
+        test -n "$tz"; or set tz (readlink -f /etc/localtime | string replace -r '.*/zoneinfo/' '')
+        set due_args --due-date $due --time-zone $tz
     end
 
     set -l list_id $REMIND_LIST_ID
