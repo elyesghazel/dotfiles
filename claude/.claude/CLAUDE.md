@@ -92,6 +92,18 @@ Read with `sumry_accounts` / `sumry_summary` rather than guessing from memory �
 - **apple-reminders** (`~/.claude/skills/apple-reminders/SKILL.md`) - my iCloud Reminders
   via pyicloud and the `remind` / `icloud` fish functions. Trigger: `/apple-reminders`
 
-Whenever I say **"remind me"**, ask to **add, list, complete or delete a reminder / to-do**,
-or ask **what's on my reminders** — invoke the Skill tool with `skill: "apple-reminders"`
-before answering.
+Whenever I say **"remind me"**, ask to **add, list, complete or delete a reminder / to-do /
+task**, or ask **what's on my reminders** or **what I have to do** — invoke the Skill tool with
+`skill: "apple-reminders"` before answering. Bare statements count: "todo go shopping",
+"I need to call the landlord", "don't let me forget the parcel".
+
+**Todos go to Reminders, events go to Google Calendar.** Both land on my iPhone.
+- **Reminders**: something I have to *do*, with or without a deadline. "Go shopping",
+  "pay the bill by Friday", "call mum at 18:00" → `remind` (with `@ <when>` if a time is
+  given).
+- **Google Calendar** (the `Google_Calendar` connector): something that *happens* at a time,
+  usually with a duration, a place or other people. "Dentist Tuesday 14:00", "dinner with
+  Lea Saturday 19:30", "exam 12 Oct 9–11" → `create_event`.
+- Unsure, e.g. "gym tomorrow 7am"? Default to a calendar event if it blocks time and to a
+  reminder if it's a nudge. Don't ask unless both readings would be wrong in a way that
+  matters.

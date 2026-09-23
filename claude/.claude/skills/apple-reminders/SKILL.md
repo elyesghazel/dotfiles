@@ -1,6 +1,6 @@
 ---
 name: apple-reminders
-description: Read and write Elyes' Apple Reminders (iCloud) from Linux through the pyicloud CLI, wrapped by the `remind` and `icloud` fish functions. Use whenever the user says "remind me", "add a reminder", "put X on my reminders/todo", "what's on my reminders", "what do I have to do", "tick off / mark done / complete X", or mentions Apple Reminders, iCloud reminders, or their iPhone to-dos. Also use for setting due dates on existing reminders, deleting reminders, or when an `icloud` command fails with an auth or session error.
+description: Read and write Elyes' Apple Reminders (iCloud) from Linux through the pyicloud CLI, wrapped by the `remind` and `icloud` fish functions. This is where todos go. Use whenever the user says "remind me", "add a reminder", "create a todo / task", "todo: X", "I need to X", "don't let me forget X", "put X on my list", "what's on my reminders", "what do I have to do", "tick off / mark done / complete X", or mentions Apple Reminders, iCloud reminders, or their iPhone to-dos. Also use for setting due dates on existing reminders, deleting reminders, or when an `icloud` command fails with an auth or session error.
 ---
 
 # Apple Reminders
@@ -14,6 +14,14 @@ unofficial web API. Two fish functions sit on top:
 - `remind` — the everyday add / list / complete helper.
 
 The Bash tool runs bash, so call them as `fish -c '...'`.
+
+## Reminders or calendar?
+
+Todos, tasks and nudges go here; things that *happen* at a time (appointments, meetings,
+dinners, exams — anything with a duration, a place or other people) go to Google Calendar via
+the `Google_Calendar` connector's `create_event`. "Go shopping" and "pay rent by Friday" are
+reminders; "dentist Tuesday 14:00" is an event. Titles stay short and imperative, the way
+they'd read on the phone: "Go shopping", not "Reminder to go shopping".
 
 ## Everyday: `remind`
 
