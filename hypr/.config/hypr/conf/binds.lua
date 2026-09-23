@@ -83,3 +83,9 @@ hl.bind(mod .. " + T",   hl.dsp.exec_cmd(qs_cmd("masonry")))
 hl.bind(mod .. " + A",   hl.dsp.exec_cmd(qs_cmd("smartgrid")))
 hl.bind(mod .. " + W",   hl.dsp.exec_cmd(qs_cmd("columnar")))
 hl.bind(mod .. " + F2",  hl.dsp.exec_cmd(qs_cmd("hero")))
+
+-- notifications
+hl.bind(mod .. " + N",         hl.dsp.exec_cmd("dunstctl close"))
+hl.bind(mod .. " + SHIFT + N", hl.dsp.exec_cmd("dunstctl history-pop"))
+hl.bind(mod .. " + CTRL + N",  hl.dsp.exec_cmd("dunstctl context"))
+hl.bind(mod .. " + ALT + N",   hl.dsp.exec_cmd("dunstctl set-paused toggle"))

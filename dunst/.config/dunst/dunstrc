@@ -1,66 +1,89 @@
 [global]
     monitor = 0
-    # behavior of notifications => show on active / focused workspace
     follow = mouse
-    
-    # Maße und Position
-    width = 300
-    height = 200
+
+    ### Geometry ###
+    width = (280, 360)
+    height = (0, 180)
     origin = top-right
-    offset = 15x15
-    
-    gap_size = 10
-    
-    corner_radius = 10
-    
+    offset = (10, 10)
+    notification_limit = 5
+    gap_size = 6
+    corner_radius = 4
+    padding = 12
+    horizontal_padding = 14
+    text_icon_padding = 12
+    frame_width = 1
+    separator_height = 1
+    separator_color = frame
+    transparency = 0
+    indicate_hidden = yes
+    sort = urgency_descending
+
     ### Progress bar ###
     progress_bar = true
-    progress_bar_height = 8
-    progress_bar_frame_width = 1
+    progress_bar_height = 4
+    progress_bar_frame_width = 0
     progress_bar_min_width = 150
-    progress_bar_max_width = 300
-    
-    indicate_hidden = yes
-    transparency = 0
-    separator_height = 2
-    padding = 12
-    horizontal_padding = 12
-    text_icon_padding = 10
-    
-    # Mocha Blue Frame
-    frame_width = 2
-    frame_color = "#89b4fa"
-    separator_color = frame
-    
+    progress_bar_max_width = 360
+    progress_bar_corner_radius = 2
+    highlight = "#ffffffcc"
+
     ### Text ###
-    font = JetBrainsMono Nerd Font 10
+    font = JetBrainsMono Nerd Font 9
+    line_height = 2
     markup = full
-    format = "<b>%s</b>\n%b"
+    format = "<span size='small' foreground='#ffffff66'>%a</span>\n<b>%s</b>\n%b"
     alignment = left
+    vertical_alignment = center
     show_age_threshold = 60
-    ellipsize = middle
-    
+    ellipsize = end
+    word_wrap = yes
+    ignore_newline = no
+    stack_duplicates = true
+    hide_duplicate_count = false
+    show_indicators = no
+
     ### Icons ###
     icon_position = left
-    max_icon_size = 48
-    
-    # path to icons, separated by colon. Dunst will look for icons in these directories in order, papirus-icon-theme make sure is installed.
-    icon_path = /usr/share/icons/Papirus-Dark/16x16/status/:/usr/share/icons/Papirus-Dark/16x16/devices/:/usr/share/icons/Papirus-Dark/16x16/apps/
+    min_icon_size = 24
+    max_icon_size = 36
+    icon_corner_radius = 3
+    enable_recursive_icon_lookup = true
+    icon_theme = "Papirus-Dark, Adwaita"
+
+    ### History ###
+    sticky_history = yes
+    history_length = 30
+
+    ### Actions ###
+    # left: run the default action (open the app/link) and dismiss
+    # middle: pick from all actions in the menu
+    # right: dismiss
+    mouse_left_click = do_action, close_current
+    mouse_middle_click = context
+    mouse_right_click = close_current
+    dmenu = /usr/bin/rofi -dmenu -i -p "action"
+    browser = /usr/bin/xdg-open
+    always_run_script = true
 
 [urgency_low]
-    background = "#1e1e2e"
-    foreground = "#cdd6f4"
-    frame_color = "#89b4fa"
-    timeout = 5
+    background = "#0b0b10f0"
+    foreground = "#ffffff99"
+    frame_color = "#ffffff18"
+    highlight = "#ffffff66"
+    timeout = 4
 
 [urgency_normal]
-    background = "#1e1e2e"
-    foreground = "#cdd6f4"
-    frame_color = "#89b4fa"
-    timeout = 10
+    background = "#0b0b10f0"
+    foreground = "#ffffffd1"
+    frame_color = "#ffffff30"
+    highlight = "#ffffffcc"
+    timeout = 8
 
 [urgency_critical]
-    background = "#1e1e2e"
-    foreground = "#cdd6f4"
-    frame_color = "#f38ba8"
+    background = "#0b0b10f5"
+    foreground = "#ffffffe6"
+    frame_color = "#f7768e"
+    highlight = "#f7768e"
     timeout = 0
