@@ -43,7 +43,7 @@ sanitize() { basename "$1" | tr ' ' '_' | tr -cd 'A-Za-z0-9._-'; }
 # One listing for the whole share, not one per clip: `rclone lsf -R` is a network
 # round trip over the whole archive, and doing it inside the loop made an 8-clip
 # share pay for it eight times.
-declare -A ORIG_PATH ORIG_SIZE
+declare -A ORIG_PATH=() ORIG_SIZE=()
 if [[ $FOURK -eq 1 && -n "$ARCHIVE" ]]; then
   echo ">> indexing archive ..." >&2
   while IFS=';' read -r sz path; do
@@ -52,6 +52,7 @@ if [[ $FOURK -eq 1 && -n "$ARCHIVE" ]]; then
     [[ -n "${ORIG_PATH[$key]-}" ]] || { ORIG_PATH["$key"]="$path"; ORIG_SIZE["$key"]="$sz"; }
   done < <(rclone lsf -R --files-only --format "sp" "$ARCHIVE" 2>/dev/null || true)
   echo "   ${#ORIG_PATH[@]} originals indexed" >&2
+  [[ ${#ORIG_PATH[@]} -gt 0 ]] || echo "!! archive listing empty -- check rclone access to $ARCHIVE" >&2
 fi
 
 # Staged originals are real copies, unlike the hard-linked stream copies, so they
