@@ -15,4 +15,5 @@ ExecStart=/usr/bin/systemd-inhibit --what=sleep:shutdown:idle --who=autoupdate \
     --why="Upgrading packages" /usr/local/bin/autoupdate
 Nice=10
 IOSchedulingClass=idle
-TimeoutStartSec=2h
+# First runs after a long gap build big AUR packages from source (webkit2gtk ~1h+).
+TimeoutStartSec=6h
