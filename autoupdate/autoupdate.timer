@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily unattended system upgrade
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+# Catch up after the laptop was off/asleep at the scheduled time.
+Persistent=true
+OnBootSec=15min
+
+[Install]
+WantedBy=timers.target

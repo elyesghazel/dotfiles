@@ -27,6 +27,7 @@ dotfiles/
 ├── starship/           shell prompt
 ├── vicinae/            launcher & clipboard
 ├── systemd/            user units (taildrop-inbox)
+├── autoupdate/         daily unattended pacman + AUR upgrade (root timer, not stowed)
 ├── docs/               how the non-obvious bits work (WoL, device transfer)
 ├── spicetify/          Spotify theming
 ├── claude/             Claude Code — global CLAUDE.md, settings, skills, MCP bootstrap

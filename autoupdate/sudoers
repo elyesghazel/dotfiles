@@ -1,0 +1,3 @@
+# yay runs as aurbuilder and escalates only to install what it built.
+# aurbuilder has no password and no shell - only root can become it.
+aurbuilder ALL=(root) NOPASSWD: /usr/bin/pacman

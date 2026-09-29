@@ -1,0 +1,18 @@
+#!/bin/bash
+# Unattended system upgrade, run as root by autoupdate.service.
+# Repo packages first, then AUR via the unprivileged aurbuilder user
+# (yay/makepkg refuse to run as root).
+set -euo pipefail
+
+# Refresh the keyring before the rest, so a long gap between runs can't fail
+# on packages signed by keys the old keyring doesn't know yet.
+pacman -Sy --needed --noconfirm archlinux-keyring
+pacman -Su --noconfirm
+
+if command -v yay >/dev/null; then
+    cd /var/lib/aurbuilder
+    runuser -u aurbuilder -- env HOME=/var/lib/aurbuilder \
+        yay -Sua --noconfirm \
+            --answerclean None --answerdiff None --answeredit None \
+            --removemake --cleanafter
+fi

@@ -45,6 +45,7 @@ dotfiles/
 ├── spicetify/   → ~/.config/spicetify/
 ├── claude/      → ~/.claude/    (global CLAUDE.md, settings.json, skills/, bin/)
 ├── gopro/       → ~/.local/bin/, ~/.local/libexec/gopro/, ~/.config/
+├── autoupdate/  # root timer for unattended upgrades (copied by setup.sh, not stowed)
 └── packages/    # package lists and update script (not stowed)
 ```
 
@@ -138,6 +139,16 @@ copy to the VPS for Jellyfin, and `share.elyesghazel.ch` links. Full docs in
 - **`gopro/server/` is deliberately not stowed** — it's the VPS side (nginx conf,
   dashboard builder), rsync'd to `/opt/docker/gopro-share/` on every `gopro share`
   run so the deployed copy can't drift from the repo.
+
+## Unattended upgrades
+
+`autoupdate/` runs `pacman -Syu` then `yay -Sua` daily as root, on AC power only, with
+sleep/shutdown inhibited. `sudo autoupdate/setup.sh` installs it; re-run it after editing
+any file there — the units and script are **copied** into `/etc` and `/usr/local/bin`,
+never stowed, because root must not execute symlinks into a user-writable home. AUR builds
+run as a dedicated passwordless `aurbuilder` system user whose only sudo right is
+`/usr/bin/pacman`, so the user's own sudo keeps its password. Failures (file conflicts,
+Arch news manual interventions) just fail the unit: `journalctl -u autoupdate`.
 
 ## Multi-machine workflow
 

@@ -26,6 +26,8 @@
 | `shadow.timer` | Daily passwd/shadow backup |
 | `systemd-tmpfiles-clean.timer` | Daily temp cleanup |
 | `archlinux-keyring-wkd-sync.timer` | Keyring refresh |
+| `autoupdate.timer` | Daily unattended `pacman -Syu` + `yay -Sua` (from `autoupdate/`) |
+| `paccache.timer` | Weekly package-cache trim (keeps 3 versions) |
 
 ## systemd — sockets
 

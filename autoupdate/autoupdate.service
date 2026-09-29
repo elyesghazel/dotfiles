@@ -1,0 +1,17 @@
+# Unattended pacman -Syu + yay -Sua. Installed by autoupdate/setup.sh.
+# Logs:  journalctl -u autoupdate
+[Unit]
+Description=Unattended pacman + AUR upgrade
+Wants=network-online.target
+After=network-online.target
+# Laptop: never start an upgrade on battery.
+ConditionACPower=true
+
+[Service]
+Type=oneshot
+# Hold off suspend/shutdown so an upgrade (and mkinitcpio) is never cut in half.
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:shutdown:idle --who=autoupdate \
+    --why="Upgrading packages" /usr/local/bin/autoupdate
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h
