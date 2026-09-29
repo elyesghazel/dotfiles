@@ -5,10 +5,13 @@
 set -euo pipefail
 [ "$EUID" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd /  # pkexec starts in /root; runuser fish below warns it cannot read it
 
 # Keep modules of the running kernel usable after an unattended kernel upgrade,
 # and cap the package cache that daily upgrades would otherwise grow forever.
-pacman -S --needed --noconfirm kernel-modules-hook pacman-contrib
+# pacman -T needs no lock, so re-running setup while an upgrade is going is safe.
+pacman -T kernel-modules-hook pacman-contrib >/dev/null ||
+    pacman -S --needed --noconfirm kernel-modules-hook pacman-contrib
 
 id aurbuilder &>/dev/null || useradd --system --create-home \
     --home-dir /var/lib/aurbuilder --shell /usr/bin/nologin aurbuilder
