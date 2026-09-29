@@ -1,0 +1,22 @@
+#!/bin/bash
+# OnFailure handler for autoupdate.service: push the tail of the failed run to ntfy.
+# Credentials come from /etc/autoupdate/ntfy.env, written by setup.sh.
+set -euo pipefail
+
+if [ -z "${NTFY_URL:-}" ] || [ -z "${NTFY_TOPIC:-}" ] || [ -z "${NTFY_TOKEN:-}" ]; then
+    echo "no ntfy credentials in /etc/autoupdate/ntfy.env - not notifying" >&2
+    exit 0
+fi
+
+# MONITOR_INVOCATION_ID is set by systemd for OnFailure= units - it scopes the
+# log to the run that failed instead of whatever came before it.
+log=$(journalctl -u autoupdate.service -o cat --no-pager -n 12 \
+    ${MONITOR_INVOCATION_ID:+_SYSTEMD_INVOCATION_ID=$MONITOR_INVOCATION_ID} \
+    | grep -v downloading | tail -8)
+
+printf 'journalctl -u autoupdate\n\n%s' "$log" | curl -fsS -o /dev/null \
+    -H "Authorization: Bearer $NTFY_TOKEN" \
+    -H "Title: autoupdate failed on $(uname -n)" \
+    -H "Priority: high" \
+    -H "Tags: warning,package" \
+    --data-binary @- "$NTFY_URL/$NTFY_TOPIC"

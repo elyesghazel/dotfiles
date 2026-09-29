@@ -1,0 +1,10 @@
+# Triggered by autoupdate.service's OnFailure=.
+[Unit]
+Description=Notify via ntfy that the unattended upgrade failed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/autoupdate/ntfy.env
+ExecStart=/usr/local/bin/autoupdate-notify

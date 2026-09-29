@@ -6,6 +6,7 @@ Wants=network-online.target
 After=network-online.target
 # Laptop: never start an upgrade on battery.
 ConditionACPower=true
+OnFailure=autoupdate-notify.service
 
 [Service]
 Type=oneshot
