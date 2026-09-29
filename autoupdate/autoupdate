@@ -11,7 +11,10 @@ pacman -Su --noconfirm
 
 if command -v yay >/dev/null; then
     cd /var/lib/aurbuilder
-    runuser -u aurbuilder -- env HOME=/var/lib/aurbuilder \
+    # setpriv, not runuser: runuser opens a PAM session, which moves the build
+    # into its own session scope, where stopping or timing out the service can't reach it.
+    setpriv --reuid=aurbuilder --regid=aurbuilder --init-groups -- \
+        env HOME=/var/lib/aurbuilder USER=aurbuilder LOGNAME=aurbuilder \
         yay -Sua --noconfirm \
             --answerclean None --answerdiff None --answeredit None \
             --removemake --cleanafter
