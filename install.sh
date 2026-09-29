@@ -42,6 +42,8 @@ echo "==> Linking configs with stow"
 cd "$DOTFILES"
 stow fish kitty hypr waybar dunst starship vicinae claude systemd
 systemctl --user daemon-reload && systemctl --user enable --now taildrop-inbox 2>/dev/null || true
+sudo install -d -o "$USER" /mnt/cloudreve
+systemctl --user enable --now rclone-cloudreve 2>/dev/null || true
 
 echo "==> Enabling unattended upgrades"
 sudo "$DOTFILES/autoupdate/setup.sh"

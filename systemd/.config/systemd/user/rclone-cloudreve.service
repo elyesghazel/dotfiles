@@ -1,0 +1,31 @@
+# Mount the CloudReve WebDAV remote at /mnt/cloudreve.
+# The timeouts matter: with --vfs-cache-mode full an open() blocks until rclone has
+# fetched the file, so a server that stalls on GET would hang every app touching the
+# mount (BambuStudio's recent-files list did) in uninterruptible I/O. With them, the
+# open fails with EIO after ~1 min instead.
+# Needs:  sudo install -d -o $USER /mnt/cloudreve   (once per machine)
+# Enable: systemctl --user enable --now rclone-cloudreve
+# Logs:   journalctl --user -u rclone-cloudreve
+[Unit]
+Description=rclone mount CloudReve at /mnt/cloudreve
+After=network-online.target
+
+[Service]
+Type=notify
+ExecStartPre=-/usr/bin/fusermount3 -uz /mnt/cloudreve
+ExecStart=/usr/bin/rclone mount CloudReve: /mnt/cloudreve \
+    --vfs-cache-mode full \
+    --vfs-cache-max-size 10G \
+    --vfs-cache-max-age 24h \
+    --dir-cache-time 5m \
+    --contimeout 10s \
+    --timeout 30s \
+    --low-level-retries 2 \
+    --retries 1 \
+    --log-level INFO
+ExecStop=/usr/bin/fusermount3 -uz /mnt/cloudreve
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -2,7 +2,7 @@
 
 > Inventory of services, timers, and autostart programs on the Arch + Hyprland box.
 > Regenerate the live state with `dotfiles/packages/update.sh services` (see bottom).
-> Last hand-updated: 2026-06-14.
+> Last hand-updated: 2026-09-29.
 
 ---
 
@@ -44,6 +44,8 @@
 | `p11-kit-server.socket` | PKCS#11 / smartcard proxy |
 | `xdg-user-dirs.service` | Populates `~/.config/user-dirs.dirs` |
 | `claude-cowork.service` | Claude Code cowork helper |
+| `taildrop-inbox.service` | Moves received Taildrop files into `~/tailscale-files` (from `systemd/`) |
+| `rclone-cloudreve.service` | Mounts the CloudReve WebDAV remote at `/mnt/cloudreve`, with timeouts (from `systemd/`) |
 
 ---
 

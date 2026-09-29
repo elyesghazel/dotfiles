@@ -150,6 +150,15 @@ run as a dedicated passwordless `aurbuilder` system user whose only sudo right i
 `/usr/bin/pacman`, so the user's own sudo keeps its password. Failures (file conflicts,
 Arch news manual interventions) just fail the unit: `journalctl -u autoupdate`.
 
+## CloudReve mount
+
+`systemd/.config/systemd/user/rclone-cloudreve.service` mounts the `CloudReve:` rclone
+remote at `/mnt/cloudreve`. Its `--contimeout`/`--timeout`/`--low-level-retries` flags are
+load-bearing: with `--vfs-cache-mode full`, `open()` blocks until the file is downloaded, so
+a server that stalls on GET used to leave apps (BambuStudio's recent-files list) stuck in
+unkillable `D` state. Don't drop them. The remote itself lives in the untracked
+`~/.config/rclone/rclone.conf`.
+
 ## Multi-machine workflow
 
 `dotsync` tags commits with the hostname (`uname -n`), enabling multiple machines to push to the same repo. Machine-specific Hyprland settings belong in `conf/host.lua` only — shared modules should stay generic.
