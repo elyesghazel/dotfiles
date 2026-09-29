@@ -26,9 +26,9 @@ dotfiles/
 ├── kitty/              terminal emulator
 ├── starship/           shell prompt
 ├── vicinae/            launcher & clipboard
-├── systemd/            user units (taildrop-inbox)
+├── systemd/            user units (taildrop-inbox, rclone-cloudreve mount)
 ├── autoupdate/         daily unattended pacman + AUR upgrade (root timer, not stowed)
-├── docs/               how the non-obvious bits work (WoL, device transfer)
+├── docs/               setup guide + how the non-obvious bits work (WoL, device transfer)
 ├── spicetify/          Spotify theming
 ├── claude/             Claude Code — global CLAUDE.md, settings, skills, MCP bootstrap
 └── gopro/              GoPro → Jellyfin streaming pipeline (NVENC transcode + scripts)
@@ -167,16 +167,20 @@ validates the format; bare `dotsync` falls back to `chore(sync): ...`. Full rule
 
 ## Installation
 
+**Full walkthrough: [`docs/setup.md`](docs/setup.md)**. It covers prerequisites, per-machine
+config, secrets and accounts, WSL, and troubleshooting.
+
 > **Note:** Review configs before running — some paths (monitor names, home dirs) are hardcoded for my machine.
 
 ```bash
 git clone https://github.com/elyesghazel/dotfiles.git ~/dotfiles
 cd ~/dotfiles
-chmod +x install.sh
 ./install.sh
 ```
 
-This installs all packages from `packages/pacman.txt` and `packages/aur.txt`, then links configs via `stow`.
+This installs all packages from `packages/pacman.txt` and `packages/aur.txt`, links configs
+via `stow`, and enables the user services and unattended upgrades. Secrets are never in the
+repo; [section 6 of the guide](docs/setup.md#6-secrets-and-accounts) says where each one goes.
 
 ---
 

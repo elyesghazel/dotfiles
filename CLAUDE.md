@@ -159,6 +159,12 @@ a server that stalls on GET used to leave apps (BambuStudio's recent-files list)
 unkillable `D` state. Don't drop them. The remote itself lives in the untracked
 `~/.config/rclone/rclone.conf`.
 
+## Setup guide
+
+`docs/setup.md` is the public, from-scratch install guide. Keep it in sync when
+`install.sh`, the stow package list, or a secret's location changes, and never put real
+values in it — placeholders only.
+
 ## Multi-machine workflow
 
 `dotsync` tags commits with the hostname (`uname -n`), enabling multiple machines to push to the same repo. Machine-specific Hyprland settings belong in `conf/host.lua` only — shared modules should stay generic.
