@@ -3,6 +3,7 @@
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACMAN_LIST="$DOTFILES/packages/pacman.txt"
 AUR_LIST="$DOTFILES/packages/aur.txt"
+EXCLUDE="$DOTFILES/packages/exclude.txt"
 
 _require_pacman() {
     if ! command -v pacman &> /dev/null; then
@@ -11,10 +12,15 @@ _require_pacman() {
     fi
 }
 
+# Drop packages matching packages/exclude.txt (per-machine drivers).
+_filter() {
+    grep -vEf <(grep -vE '^\s*(#|$)' "$EXCLUDE" 2>/dev/null) || true
+}
+
 cmd_update() {
     _require_pacman
-    pacman -Qqen > "$PACMAN_LIST"
-    pacman -Qqem > "$AUR_LIST"
+    pacman -Qqen | _filter > "$PACMAN_LIST"
+    pacman -Qqem | _filter > "$AUR_LIST"
     echo "Package lists updated:"
     printf "  Official  %d packages → packages/pacman.txt\n" "$(wc -l < "$PACMAN_LIST")"
     printf "  AUR       %d packages → packages/aur.txt\n"    "$(wc -l < "$AUR_LIST")"
@@ -31,9 +37,9 @@ cmd_diff() {
     _require_pacman
     echo "── In system but NOT in lists ──"
     echo "  Official:"
-    comm -23 <(pacman -Qqen | sort) <(sort "$PACMAN_LIST") | sed 's/^/    /'
+    comm -23 <(pacman -Qqen | _filter | sort) <(sort "$PACMAN_LIST") | sed 's/^/    /'
     echo "  AUR:"
-    comm -23 <(pacman -Qqem | sort) <(sort "$AUR_LIST") | sed 's/^/    /'
+    comm -23 <(pacman -Qqem | _filter | sort) <(sort "$AUR_LIST") | sed 's/^/    /'
     echo "── In lists but NOT installed ──"
     echo "  Official:"
     comm -13 <(pacman -Qqen | sort) <(sort "$PACMAN_LIST") | sed 's/^/    /'

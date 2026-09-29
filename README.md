@@ -18,6 +18,7 @@ dotfiles/
 ├── packages/
 │   ├── pacman.txt      official Arch packages
 │   ├── aur.txt         AUR packages
+│   ├── exclude.txt     per-machine packages kept out of the lists (GPU drivers)
 │   └── update.sh       export / list / diff packages, dump services
 ├── fish/               shell — functions, completions, conf.d
 ├── hypr/               Hyprland WM (Lua config, modular conf/)
@@ -191,6 +192,9 @@ packages/update.sh update   # export installed packages → lists
 packages/update.sh list     # show all packages in the lists
 packages/update.sh diff     # compare system vs lists
 ```
+
+Hardware drivers (the NVIDIA stack) are kept out of the shared lists by
+[`packages/exclude.txt`](packages/exclude.txt) and installed per machine.
 
 ---
 

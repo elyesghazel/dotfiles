@@ -56,9 +56,10 @@ You need a working Arch base install:
 sudo pacman -S --needed git base-devel
 ```
 
-**GPU drivers are not managed by the package lists.** The lists are an export of whichever
-machine last ran `dotsync`, so they may or may not contain a driver, and the one they
-contain may be wrong for this machine. Install the right one yourself before continuing:
+**GPU drivers are not in the package lists.** The lists are shared between machines, so
+`packages/update.sh` drops anything matching [`packages/exclude.txt`](../packages/exclude.txt)
+(the NVIDIA stack) when it exports them. Install the right driver for this machine yourself
+before continuing:
 
 | Hardware | Packages |
 |---|---|
@@ -340,6 +341,9 @@ packages/update.sh update     # export explicitly installed packages → lists
 packages/update.sh diff       # installed-but-untracked, and tracked-but-missing
 packages/update.sh services   # dump enabled units / timers / autostart (for RUNNING.md)
 ```
+
+Packages that must stay per machine (hardware drivers) go in `packages/exclude.txt`, one
+extended regex per line. Both `update` and `diff` skip them.
 
 ### Unattended upgrades
 

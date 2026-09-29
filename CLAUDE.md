@@ -21,6 +21,7 @@ dotsync                    # fish function — run inside a fish shell
 # Update package tracking lists
 ./packages/update.sh update   # exports pacman -Qqen / -Qqem to packages/*.txt
 ./packages/update.sh diff     # shows what's installed but untracked and vice versa
+# packages/exclude.txt — regexes kept out of the shared lists (NVIDIA drivers)
 
 # Full system update (pacman + AUR + pnpm + dotsync)
 update_all                 # fish function

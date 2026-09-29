@@ -1,0 +1,10 @@
+# Packages kept out of pacman.txt / aur.txt by `update.sh update`.
+# One extended regex per line, matched against the package name.
+#
+# Hardware drivers are per machine: the lists are shared, and installing the
+# NVIDIA stack on a machine without an NVIDIA GPU (the laptop) is wrong.
+# Install them by hand — see docs/setup.md, section 2.
+^nvidia
+^lib32-nvidia
+^opencl-nvidia$
+^libva-nvidia-driver$
