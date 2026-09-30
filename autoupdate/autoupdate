@@ -3,11 +3,17 @@
 # Repo packages first, then AUR via the unprivileged aurbuilder user
 # (yay/makepkg refuse to run as root).
 set -euo pipefail
+PACMAN=/usr/local/bin/autoupdate-pacman
+
+# Never build these unattended. webkit2gtk is a ~1h from-source rebuild pulled in
+# only by whatsapp-for-linux-git; hold it back and rebuild it by hand when wanted.
+# Each stays at its installed version until then.
+IGNORE=(webkit2gtk)
 
 # Refresh the keyring before the rest, so a long gap between runs can't fail
 # on packages signed by keys the old keyring doesn't know yet.
-pacman -Sy --needed --noconfirm archlinux-keyring
-pacman -Su --noconfirm
+"$PACMAN" -Sy --needed --noconfirm archlinux-keyring
+"$PACMAN" -Su --noconfirm
 
 if command -v yay >/dev/null; then
     cd /var/lib/aurbuilder
@@ -15,7 +21,7 @@ if command -v yay >/dev/null; then
     # into its own session scope, where stopping or timing out the service can't reach it.
     setpriv --reuid=aurbuilder --regid=aurbuilder --init-groups -- \
         env HOME=/var/lib/aurbuilder USER=aurbuilder LOGNAME=aurbuilder \
-        yay -Sua --noconfirm \
+        yay -Sua --noconfirm --pacman "$PACMAN" "${IGNORE[@]/#/--ignore=}" \
             --answerclean None --answerdiff None --answeredit None \
             --removemake --cleanafter
 fi

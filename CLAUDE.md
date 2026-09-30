@@ -143,12 +143,16 @@ copy to the VPS for Jellyfin, and `share.elyesghazel.ch` links. Full docs in
 
 ## Unattended upgrades
 
-`autoupdate/` runs `pacman -Syu` then `yay -Sua` daily as root, on AC power only, with
-sleep/shutdown inhibited. `sudo autoupdate/setup.sh` installs it; re-run it after editing
+`autoupdate/` runs `pacman -Syu` then `yay -Sua` daily as root, on AC power only. Sleep is
+inhibited for the whole run, shutdown only while pacman writes packages: every pacman call,
+yay's included (`--pacman`), goes through `autoupdate-pacman`, so poweroff still works during
+hours of AUR compiling. `sudo autoupdate/setup.sh` installs it; re-run it after editing
 any file there — the units and script are **copied** into `/etc` and `/usr/local/bin`,
 never stowed, because root must not execute symlinks into a user-writable home. AUR builds
 run as a dedicated passwordless `aurbuilder` system user whose only sudo right is
-`/usr/bin/pacman`, so the user's own sudo keeps its password. Failures (file conflicts,
+`/usr/bin/pacman`, so the user's own sudo keeps its password. The `IGNORE` array at the
+top of `autoupdate` holds packages never built unattended (webkit2gtk — a ~1h from-source
+rebuild); they stay at their installed version until rebuilt by hand. Failures (file conflicts,
 Arch news manual interventions) fail the unit, and `OnFailure=` pushes the log tail to ntfy
 (same URL/topic/token as `clip`). `setup.sh` copies those from `~/.claude/secrets.fish` into
 root-only `/etc/autoupdate/ntfy.env`, so re-run it after rotating the token.
