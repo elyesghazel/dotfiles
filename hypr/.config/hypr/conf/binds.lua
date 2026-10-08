@@ -14,6 +14,10 @@ end
 hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd("brightnessctl set 5%+"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 
+-- external monitor brightness (DDC/CI, both monitors)
+hl.bind(mod .. " + ALT + up",   hl.dsp.exec_cmd("monitor-brightness +10"), { locked = true, repeating = true })
+hl.bind(mod .. " + ALT + down", hl.dsp.exec_cmd("monitor-brightness -10"), { locked = true, repeating = true })
+
 -- apps
 hl.bind(mod .. " + RETURN",  hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + E",       hl.dsp.exec_cmd(fileManager))
