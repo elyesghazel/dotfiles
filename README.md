@@ -32,6 +32,7 @@ dotfiles/
 ├── docs/               setup guide + how the non-obvious bits work (WoL, device transfer)
 ├── spicetify/          Spotify theming
 ├── claude/             Claude Code — global CLAUDE.md, settings, skills, MCP bootstrap
+├── secrets/            `secrets` CLI + manifest - credential files synced from Vaultwarden
 └── gopro/              GoPro → Jellyfin streaming pipeline (NVENC transcode + scripts)
 ```
 
@@ -60,6 +61,7 @@ OAuth tokens, `userID`, `machineID` and per-project history — so that file is 
 The server *definitions* are tracked in `bin/mcp-bootstrap.fish` and the *secrets* are not:
 
 ```bash
+secrets pull claude-mcp                                    # from Vaultwarden (docs/secrets.md), or:
 cp ~/.claude/secrets.fish.example ~/.claude/secrets.fish   # gitignored
 $EDITOR ~/.claude/secrets.fish                             # fill in real values
 fish ~/.claude/bin/mcp-bootstrap.fish                      # idempotent

@@ -199,6 +199,11 @@ fisher update
 Nothing in this section is in the repo. Every file created here is either outside the stow
 packages or gitignored. Placeholders are written as `<like-this>`.
 
+**Shortcut:** every credential file listed in `secrets/.config/secrets/manifest.tsv` is stored
+in Vaultwarden. On a machine with the Bitwarden CLI logged in, `secrets-unlock && secrets pull`
+writes all of them (including `~/.claude/secrets.fish`) - see [secrets.md](secrets.md). The
+manual steps below are the fallback and the reference for what each file holds.
+
 ### Claude Code: MCP servers
 
 MCP servers live in `~/.claude.json`, next to OAuth tokens and machine IDs, so that file is
@@ -207,6 +212,7 @@ their credentials go in a local secrets file:
 
 ```fish
 claude                                                     # log in once
+secrets pull claude-mcp                                    # from Vaultwarden, or by hand:
 cp ~/.claude/secrets.fish.example ~/.claude/secrets.fish   # gitignored
 $EDITOR ~/.claude/secrets.fish                             # fill in real values
 fish ~/.claude/bin/mcp-bootstrap.fish                      # idempotent, re-run any time
