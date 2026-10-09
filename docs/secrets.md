@@ -90,7 +90,9 @@ Step-by-step runbook (written so a Claude session on the new device can follow i
 4. `secrets-unlock && secrets pull`
 
 The hostname picks the files: `elyes-arch` (Arch PC), `elyes-ghazel-server` (VPS). A new
-machine gets every `*` item; add its hostname to the `hosts` column for the rest. Override with
+machine gets every `*` item; add its hostname to the `hosts` column for the rest. `!host`
+excludes one machine from a `*` line - used where the server needs its own variant of a file
+(`claude-mcp` vs `claude-mcp-server`, both `~/.claude/secrets.fish`). Override with
 `SECRETS_HOST=<name>` if a hostname is odd (WSL).
 
 ## New tool that needs a credential
