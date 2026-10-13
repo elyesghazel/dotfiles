@@ -19,6 +19,7 @@ id aurbuilder &>/dev/null || useradd --system --create-home \
 visudo -cf "$DIR/sudoers"
 install -Dm440 "$DIR/sudoers"           /etc/sudoers.d/autoupdate
 install -Dm755 "$DIR/autoupdate"        /usr/local/bin/autoupdate
+install -Dm755 "$DIR/autoupdate-pacman" /usr/local/bin/autoupdate-pacman
 install -Dm644 "$DIR/autoupdate.service" /etc/systemd/system/autoupdate.service
 install -Dm644 "$DIR/autoupdate.timer"   /etc/systemd/system/autoupdate.timer
 install -Dm755 "$DIR/autoupdate-notify"         /usr/local/bin/autoupdate-notify

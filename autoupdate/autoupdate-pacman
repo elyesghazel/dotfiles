@@ -1,0 +1,10 @@
+#!/bin/bash
+# pacman wrapper for autoupdate: holds a shutdown inhibitor only while pacman
+# itself runs, so poweroff still works during hours of AUR compiling.
+# yay calls it too (--pacman), as aurbuilder for queries and via sudo to install.
+# Only root may take a shutdown lock without polkit, so non-root calls go straight through.
+if [ "$EUID" -eq 0 ]; then
+    exec /usr/bin/systemd-inhibit --what=shutdown --who=autoupdate \
+        --why="Installing packages" /usr/bin/pacman "$@"
+fi
+exec /usr/bin/pacman "$@"

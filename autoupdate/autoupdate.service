@@ -10,8 +10,9 @@ OnFailure=autoupdate-notify.service
 
 [Service]
 Type=oneshot
-# Hold off suspend/shutdown so an upgrade (and mkinitcpio) is never cut in half.
-ExecStart=/usr/bin/systemd-inhibit --what=sleep:shutdown:idle --who=autoupdate \
+# Hold off suspend for the whole run; autoupdate-pacman blocks shutdown only
+# while packages (and mkinitcpio) are being written.
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle --who=autoupdate \
     --why="Upgrading packages" /usr/local/bin/autoupdate
 Nice=10
 IOSchedulingClass=idle
