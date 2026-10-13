@@ -1,0 +1,17 @@
+# Briefly connect to the iPhone over Bluetooth at login so its Shortcuts automation
+# ("Bluetooth: elyes-laptop connected → Personal Hotspot on") fires. Works without
+# network, which is the whole point. The link is dropped again after 20 s because the
+# iPhone treats the laptop as an A2DP speaker and would route its audio here.
+# Needs:  ~/.config/phone-hotspot.env with IPHONE_BT=<MAC> (untracked)
+# Enable: systemctl --user enable phone-hotspot
+# Logs:   journalctl --user -u phone-hotspot
+[Unit]
+Description=Wake iPhone hotspot via Bluetooth connect
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/phone-hotspot.env
+ExecStart=/usr/bin/sh -c 'bluetoothctl power on; for i in 1 2 3 4 5 6; do bluetoothctl connect "$IPHONE_BT" && break; sleep 10; done; sleep 20; bluetoothctl disconnect "$IPHONE_BT"'
+
+[Install]
+WantedBy=default.target

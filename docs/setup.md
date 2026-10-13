@@ -243,6 +243,17 @@ The remote name `CloudReve` must match the unit. See
 [the rclone section of troubleshooting](#an-app-freezes-when-opening-files-from-mntcloudreve)
 for why that unit has aggressive timeouts.
 
+### iPhone hotspot on boot
+
+`phone-hotspot.service` connects to the iPhone over Bluetooth at login so an iOS Shortcuts
+automation (Bluetooth → laptop connected → Personal Hotspot on) fires. Pair once, then:
+
+```bash
+bluetoothctl pair <iphone-mac>; bluetoothctl trust <iphone-mac>
+echo 'IPHONE_BT=<iphone-mac>' > ~/.config/phone-hotspot.env   # untracked
+systemctl --user enable phone-hotspot
+```
+
 ### Tailscale
 
 Used by `send`, `wake`, and the Taildrop inbox.
