@@ -38,6 +38,7 @@ dotfiles/
 ├── hypr/        → ~/.config/hypr/
 ├── waybar/      → ~/.config/waybar/
 ├── kitty/       → ~/.config/kitty/
+├── yazi/        → ~/.config/yazi/
 ├── fish/        → ~/.config/fish/
 ├── dunst/       → ~/.config/dunst/
 ├── starship/    → ~/.config/starship/
