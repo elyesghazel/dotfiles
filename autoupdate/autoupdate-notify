@@ -3,6 +3,9 @@
 # Credentials come from /etc/autoupdate/ntfy.env, written by setup.sh.
 set -euo pipefail
 
+# Shutting down mid-build kills the run; that's expected, not worth a push.
+[ "$(systemctl is-system-running 2>/dev/null)" = stopping ] && exit 0
+
 if [ -z "${NTFY_URL:-}" ] || [ -z "${NTFY_TOPIC:-}" ] || [ -z "${NTFY_TOKEN:-}" ]; then
     echo "no ntfy credentials in /etc/autoupdate/ntfy.env - not notifying" >&2
     exit 0
