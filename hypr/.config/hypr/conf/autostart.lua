@@ -20,6 +20,8 @@ hl.on("hyprland.start", function()
 
     -- autologin (sddm) → lock immediately; remote unlock: pkill -USR1 hyprlock
     hl.exec_cmd("hyprlock")
+    -- Sunshine's unit wants graphical-session.target, which plain Hyprland never reaches
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE && systemctl --user start sunshine")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("poweralertd")
     hl.exec_cmd("quickshell -p /home/elyes/apps/qs-hyprview")
