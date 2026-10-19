@@ -1,12 +1,17 @@
-/* Tokyo night dark enhanced color theme */
+/* Graphite — dark */
 
-@define-color module-bg     rgba(8, 8, 11, 0.9);
-@define-color tooltip-bg    @module-bg;
-@define-color inactive      #787c99;
-@define-color fg            #acb0d0;
-@define-color workspace-fg  @fg;
+@define-color bar-bg        rgba(14, 14, 20, 0.88);
+@define-color bar-border    rgba(255, 255, 255, 0.06);
+@define-color surface       rgba(255, 255, 255, 0.05);
+@define-color surface-hover rgba(255, 255, 255, 0.09);
+@define-color divider       rgba(255, 255, 255, 0.07);
 
-@define-color red           #f7768e;
-@define-color blue          #7aa2f7;
-@define-color yellow        #e0af68;
-@define-color green         #41a6b5;
+@define-color fg            #e6e6ee;
+@define-color fg-muted      #9a9aac;
+@define-color fg-faint      #5a5a6a;
+@define-color fg-ghost      #34343f;
+
+@define-color accent        #b4befe;
+@define-color green         #a6e3a1;
+@define-color yellow        #f9e2af;
+@define-color red           #f38ba8;

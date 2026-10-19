@@ -1,108 +1,185 @@
 {
     "layer": "top",
     "position": "top",
-    "height": 38,
-    "margin": "8 8 0 8",
+    "height": 34,
+    "margin": "10 10 0 10",
     "spacing": 0,
+    "reload_style_on_change": true,
+
+    "modules-left":   ["group/left"],
+    "modules-center": ["group/center"],
+    "modules-right":  ["group/right"],
 
     "group/left": {
         "orientation": "horizontal",
         "modules": ["custom/start", "hyprland/workspaces", "wlr/taskbar", "mpris"]
     },
 
-    "group/right": {
+    "group/center": {
         "orientation": "horizontal",
-        "modules": ["cpu", "memory", "pulseaudio", "network", "bluetooth", "battery", "tray"]
+        "modules": ["clock", "custom/gcal"]
     },
 
-    "modules-left":   ["group/left"],
-    "modules-center": ["clock"],
-    "modules-right":  ["group/right"],
+    "group/right": {
+        "orientation": "horizontal",
+        "modules": ["group/tray", "cpu", "memory", "pulseaudio", "network", "bluetooth", "battery"]
+    },
+
+    "group/tray": {
+        "orientation": "inherit",
+        "drawer": {
+            "transition-duration": 350,
+            "transition-left-to-right": false,
+            "children-class": "tray-child"
+        },
+        "modules": ["custom/tray-toggle", "tray"]
+    },
+
+    // ── left ────────────────────────────────────────────
+
+    "custom/start": {
+        "format": "󰣇",
+        "tooltip": false,
+        "on-click": "vicinae toggle"
+    },
 
     "hyprland/workspaces": {
         "format": "{id}",
-        "on-scroll-down": "hyprctl dispatch workspace e+1",
-        "on-scroll-up":   "hyprctl dispatch workspace e-1",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e+1\" })'",
+        "on-scroll-up":   "hyprctl dispatch 'hl.dsp.focus({ workspace = \"e-1\" })'",
         "persistent-workspaces": {
-            "DP-2":     [1,2,3,4,5],
-            "HDMI-A-2": [6,7,8,9,10]
+            "DP-2":     [1, 2, 3, 4, 5],
+            "HDMI-A-2": [6, 7, 8, 9, 10]
         },
         "cursor": true
     },
 
+    "wlr/taskbar": {
+        "format": "{icon}",
+        "icon-size": 15,
+        "tooltip-format": "{title}",
+        "on-click": "activate",
+        "on-click-middle": "close",
+        "on-scroll-up": "minimize-raise"
+    },
+
+    "mpris": {
+        "format":         "{status_icon}  {title}",
+        "format-paused":  "{status_icon}  {title}",
+        "status-icons": {
+            "playing": "󰏤",
+            "paused":  "󰐊"
+        },
+        "tooltip-format": "{artist} — {title}\n{album}",
+        "on-click":       "playerctl play-pause",
+        "on-scroll-up":   "playerctl previous",
+        "on-scroll-down": "playerctl next",
+        "title-len": 28,
+        "max-length": 34
+    },
+
+    // ── center ──────────────────────────────────────────
+
     "clock": {
         "timezone": "Europe/Zurich",
-        "tooltip-format": "<tt><small>{calendar}</small></tt>",
-        "format":     "{:%H:%M}",
-        "format-alt": "{:%A, %d %B %Y}",
-        "on-click-right": "hyprctl dispatch exec 'kitty --class=peaclock -e peaclock'",
+        "format":     "<span alpha='55%'>{0:%a %d}</span>   {0:%H:%M}",
+        "tooltip-format": "<tt>{calendar}</tt>",
+        "on-click":       "~/.config/waybar/scripts/gcal toggle",
+        "on-click-right": "kitty --class=peaclock -e peaclock",
         "calendar": {
             "mode": "month",
             "weeks-pos": "right",
             "format": {
-                "months":   "<span color='#c8c8c8'><b>{}</b></span>",
-                "days":     "<span color='#c8c8c8'><b>{}</b></span>",
-                "weeks":    "<span color='#888'><b>W{}</b></span>",
-                "weekdays": "<span color='#888'><b>{}</b></span>",
-                "today":    "<span color='#fff'><b><u>{}</u></b></span>"
+                "months":   "<b>{}</b>",
+                "days":     "{}",
+                "weeks":    "<span alpha='40%'>W{}</span>",
+                "weekdays": "<span alpha='55%'>{}</span>",
+                "today":    "<span color='#b4befe'><b>{}</b></span>"
             }
         }
     },
 
-    "mpris": {
-        "format":         "{artist} — {title}",
-        "tooltip-format": "{album}",
-        "format-paused":  " {artist} — {title}",
-        "on-click":       "playerctl play-pause",
-        "on-scroll-up":   "playerctl previous",
-        "on-scroll-down": "playerctl next",
-        "max-length": 38
+    "custom/gcal": {
+        "exec": "~/.config/waybar/scripts/gcal waybar",
+        "return-type": "json",
+        "interval": 60,
+        "escape": false,
+        "on-click": "~/.config/waybar/scripts/gcal toggle"
+    },
+
+    // ── right ───────────────────────────────────────────
+
+    "custom/tray-toggle": {
+        "format": "󰅁",
+        "tooltip": false
+    },
+
+    "tray": {
+        "icon-size": 14,
+        "spacing": 10
+    },
+
+    "cpu": {
+        "interval": 5,
+        "format": "<span font_family='Material Symbols Rounded' size='120%' rise='-2pt'>\ue322</span>  {usage}%",
+        "states": { "warning": 80, "critical": 90 }
+    },
+
+    "memory": {
+        "interval": 5,
+        "format": "<span font_family='Material Symbols Rounded' size='120%' rise='-2pt'>\uf7a3</span>  {used:0.1f}G",
+        "tooltip-format": "{used:0.1f}G / {total:0.1f}G",
+        "states": { "warning": 80, "critical": 90 }
     },
 
     "pulseaudio": {
         "format":           "{icon}",
         "format-bluetooth": "{icon}",
-        "on-click":         "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-        "on-click-right":   "pavucontrol",
-        "on-scroll-up":     "wpctl set-volume @DEFAULT_SINK@ 2%+",
-        "on-scroll-down":   "wpctl set-volume @DEFAULT_SINK@ 2%-",
-        "tooltip-format":   "{volume}%",
         "format-muted":     "󰝟",
+        "tooltip-format":   "{desc}  ·  {volume}%",
         "scroll-step": 2,
+        "on-click":         "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-click-right":   "pavucontrol",
+        "on-scroll-up":     "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+",
+        "on-scroll-down":   "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-",
         "format-icons": {
-            "headphone":  "",
-            "headset":    "",
-            "default":    ["󰕿", "󰖀", "󰕾"]
+            "headphone": "󰋋",
+            "headset":   "󰋎",
+            "default":   ["󰕿", "󰖀", "󰕾"]
         }
     },
 
     "network": {
         "interval": 10,
-        "format-disabled":    "󰤭",
+        "format-wifi":         "{icon}",
+        "format-ethernet":     "󰈀",
         "format-disconnected": "󰤮",
-        "format-wifi":        "󰤨",
-        "format-ethernet":    "󰈀",
-        "tooltip-format": "{essid}  {signalStrength}%\n{bandwidthUpBytes}  {bandwidthDownBytes}",
+        "format-disabled":     "󰤭",
+        "format-icons":        ["󰤟", "󰤢", "󰤥", "󰤨"],
+        "tooltip-format-wifi":     "{essid}  ·  {signalStrength}%\n󰁝 {bandwidthUpBytes}   󰁅 {bandwidthDownBytes}",
+        "tooltip-format-ethernet": "{ifname}  ·  {ipaddr}\n󰁝 {bandwidthUpBytes}   󰁅 {bandwidthDownBytes}",
+        "tooltip-format-disconnected": "Disconnected",
         "on-click": "kitty gazelle",
         "menu": "on-click-right",
         "menu-file": "~/.config/waybar/context/network.xml",
         "menu-actions": {
             "action-1": "nmcli radio wifi off",
             "action-2": "nmcli radio wifi on",
-            "action-3": "hyprctl dispatch exec '[float] kitty -e nmtui'",
-            "action-4": "hyprctl dispatch exec nm-connection-editor"
+            "action-3": "hyprctl dispatch 'hl.dsp.exec_cmd(\"kitty -e nmtui\", { float = true })'",
+            "action-4": "nm-connection-editor"
         }
     },
 
     "bluetooth": {
-        "format":                   "󰂲",
-        "format-on":                "󰂯",
-        "format-connected":         "󰂱 {device_alias}",
+        "format":           "󰂲",
+        "format-on":        "󰂯",
+        "format-connected": "󰂱",
         "tooltip-format":           "Bluetooth off",
         "tooltip-format-on":        "Bluetooth on",
-        "tooltip-format-connected": "{device_alias}",
-        "tooltip-format-enumerate-connected-battery": "{device_alias}  {device_battery_percentage}%",
-        "on-click":       "~/.local/bin/toggle_bluetooth &",
+        "tooltip-format-connected": "{device_enumerate}",
+        "tooltip-format-enumerate-connected":         "{device_alias}",
+        "tooltip-format-enumerate-connected-battery": "{device_alias}  ·  {device_battery_percentage}%",
+        "on-click": "~/.local/bin/toggle_bluetooth &",
         "menu": "on-click-right",
         "menu-file": "~/.config/waybar/context/bluetooth.xml",
         "menu-actions": {
@@ -115,47 +192,12 @@
     "battery": {
         "interval": 30,
         "full-at": 100,
-        "format-full":     "󰁹",
-        "format":          "{icon} {capacity}%",
-        "format-charging": "󰂄 {capacity}%",
-        "format-icons":    ["󰁺","󰁻","󰁼","󰁽","󰁾","󰁿","󰂀","󰂂","󰁹"],
-        "tooltip-format":  "{capacity}%  {timeTo}",
-        "states": {
-            "warning": 30,
-            "critical": 15
-        }
-    },
-
-    "tray": {
-        "icon-size": 14,
-        "spacing": 8
-    },
-
-    "cpu": {
-        "interval": 5,
-        "format": "󰻠 {usage}%",
-        "states": { "warning": 80, "critical": 90 }
-    },
-
-    "memory": {
-        "interval": 5,
-        "format": "󰍛 {used:0.1f}G",
-        "states": { "warning": 80, "critical": 90 }
-    },
-
-    "custom/start": {
-        "format": "",
-        "tooltip": false,
-        "on-click": "vicinae toggle"
-    },
-
-    "wlr/taskbar": {
-        "format": "{icon}",
-        "icon-size": 16,
-        "tooltip-format": "{title}",
-        "on-click": "activate",
-        "on-click-middle": "close",
-        "on-scroll-up": "minimize-raise",
-        "ignore-list": []
+        "format":          "{icon}  {capacity}%",
+        "format-charging": "󰂄  {capacity}%",
+        "format-plugged":  "󰚥  {capacity}%",
+        "format-full":     "󰁹  Full",
+        "format-icons":    ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+        "tooltip-format":  "{timeTo}  ·  {power:.1f}W",
+        "states": { "warning": 30, "critical": 15 }
     }
 }

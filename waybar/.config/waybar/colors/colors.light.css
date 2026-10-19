@@ -1,12 +1,17 @@
-/* Tokyo night light color theme */
+/* Graphite — light */
 
-@define-color module-bg     rgba(214, 216, 223, 0.9);
-@define-color tooltip-bg    @module-bg;
-@define-color inactive      #707280;
-@define-color fg            #343B58;
-@define-color workspace-fg  @fg;
+@define-color bar-bg        rgba(244, 244, 248, 0.92);
+@define-color bar-border    rgba(0, 0, 0, 0.07);
+@define-color surface       rgba(0, 0, 0, 0.05);
+@define-color surface-hover rgba(0, 0, 0, 0.09);
+@define-color divider       rgba(0, 0, 0, 0.08);
 
-@define-color red           #f7768e;
-@define-color blue          #2959aa;
-@define-color yellow        #e0af68;
-@define-color green         #41a6b5;
+@define-color fg            #24242e;
+@define-color fg-muted      #5c5c6e;
+@define-color fg-faint      #9a9aaa;
+@define-color fg-ghost      #c8c8d2;
+
+@define-color accent        #5a64d6;
+@define-color green         #40a02b;
+@define-color yellow        #c78a0a;
+@define-color red           #d20f39;

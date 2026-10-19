@@ -1,237 +1,280 @@
 @import "colors/colors.css";
 
+/* Graphite — three floating pills, one accent, everything eased. */
+
 * {
     font-family: 'JetBrainsMono Nerd Font';
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12.5px;
+    font-weight: 600;
     border: none;
     border-radius: 0;
     min-height: 0;
     margin: 0;
     padding: 0;
+    box-shadow: none;
     text-shadow: none;
 }
 
 #waybar {
     background: transparent;
-    color: rgba(255, 255, 255, 0.82);
+    color: @fg;
 }
 
-/* ==============================
-   PILLS
-   ============================== */
+/* every interactive bit fades instead of snapping */
+#waybar label,
+#waybar button {
+    transition: color 220ms ease, background-color 220ms ease,
+                min-width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 220ms ease;
+}
+
+/* ── pills ──────────────────────────────────────────── */
 
 #left,
 #right,
-#clock {
-    background: rgba(11, 11, 16, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 10px;
+#center {
+    background: @bar-bg;
+    border: 1px solid @bar-border;
+    border-radius: 12px;
 }
 
-#left {
-    padding: 0 6px 0 2px;
-}
+#left  { padding: 0 8px 0 4px; }
+#right { padding: 0 6px; }
 
-#right {
-    padding: 0 4px;
-}
-
-#clock {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    color: rgba(255, 255, 255, 0.92);
-    padding: 0 18px;
-}
-
-/* ==============================
-   LEFT — launcher + workspaces + mpris
-   ============================== */
+/* ── launcher ───────────────────────────────────────── */
 
 #custom-start {
-    color: rgba(255, 255, 255, 0.55);
-    font-size: 14px;
-    padding: 0 10px 0 8px;
-    margin-right: 2px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    color: @accent;
+    font-size: 15px;
+    padding: 0 12px 0 10px;
 }
 
 #custom-start:hover {
-    color: rgba(255, 255, 255, 0.90);
+    color: @fg;
 }
 
+/* ── workspaces: quiet numbers, active one becomes a pill ── */
+
 #workspaces {
-    padding: 0 4px;
+    margin: 0 2px;
 }
 
 #workspaces button {
-    color: rgba(255, 255, 255, 0.22);
-    padding: 0 6px;
-    margin: 0 1px;
-    border-radius: 6px;
-    min-width: 22px;
+    min-width: 20px;
+    margin: 6px 1px;
+    padding: 0 2px;
+    border-radius: 7px;
+    color: @fg-ghost;
+    font-size: 12px;
+}
+
+#workspaces button:not(.empty) {
+    color: @fg-muted;
 }
 
 #workspaces button.active {
-    color: rgba(255, 255, 255, 0.92);
-    font-weight: 700;
-    background: rgba(255, 255, 255, 0.10);
+    min-width: 30px;
+    color: @accent;
+    font-weight: 800;
+    background: alpha(@accent, 0.14);
 }
 
-#workspaces button.occupied:not(.active) {
-    color: rgba(255, 255, 255, 0.48);
+#workspaces button.urgent {
+    color: @red;
+    background: alpha(@red, 0.14);
 }
 
 #workspaces button:hover {
-    background: rgba(255, 255, 255, 0.07);
+    color: @fg;
+    background: @surface-hover;
 }
 
+#workspaces button.active:hover {
+    color: @accent;
+    background: alpha(@accent, 0.20);
+}
+
+/* ── taskbar ────────────────────────────────────────── */
+
 #taskbar {
-    padding: 0 4px;
-    margin-left: 2px;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    margin-left: 4px;
+    padding-left: 8px;
+    border-left: 1px solid @divider;
+}
+
+#taskbar.empty {
+    border: none;
+    padding: 0;
+    margin: 0;
 }
 
 #taskbar button {
-    padding: 5px 5px;
-    margin: 6px 1px;
-    border-radius: 6px;
-    color: rgba(255, 255, 255, 0.55);
+    padding: 0 5px;
+    margin: 5px 1px;
+    border-radius: 7px;
+    opacity: 0.6;
 }
 
 #taskbar button:hover {
-    background: rgba(255, 255, 255, 0.07);
-    color: rgba(255, 255, 255, 0.85);
+    background: @surface-hover;
+    opacity: 1;
 }
 
 #taskbar button.active {
-    background: rgba(255, 255, 255, 0.10);
-    color: rgba(255, 255, 255, 0.92);
+    background: @surface;
+    opacity: 1;
 }
 
 #taskbar button.minimized {
-    color: rgba(255, 255, 255, 0.28);
+    opacity: 0.3;
 }
+
+/* ── media ──────────────────────────────────────────── */
 
 #mpris {
-    color: rgba(255, 255, 255, 0.45);
-    padding: 0 10px;
-    margin-left: 2px;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 12px;
+    color: @fg-muted;
+    font-weight: 500;
+    margin-left: 6px;
+    padding-left: 12px;
+    border-left: 1px solid @divider;
 }
 
-#mpris.paused {
-    color: rgba(255, 255, 255, 0.20);
+#mpris:hover   { color: @fg; }
+#mpris.paused  { color: @fg-faint; }
+
+/* ── clock + next event ─────────────────────────────── */
+
+#clock {
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 0 18px;
 }
 
-/* ==============================
-   RIGHT — system status
-   ============================== */
+#custom-gcal {
+    color: @fg-muted;
+    font-weight: 500;
+    padding: 0 16px 0 14px;
+    border-left: 1px solid @divider;
+}
+
+#custom-gcal:hover { color: @fg; }
+#custom-gcal.soon  { color: @yellow; }
+#custom-gcal.now   { color: @accent; }
+
+/* ── right: tray drawer ─────────────────────────────── */
+
+#custom-tray-toggle {
+    color: @fg-faint;
+    font-size: 14px;
+    padding: 0 8px 0 6px;
+}
+
+#custom-tray-toggle:hover {
+    color: @fg;
+}
+
+#tray {
+    padding: 0 6px 0 4px;
+}
+
+#tray > .needs-attention {
+    background: alpha(@red, 0.25);
+    border-radius: 6px;
+}
+
+/* ── right: stats ───────────────────────────────────── */
 
 #cpu,
 #memory {
-    padding: 0 9px;
-    color: rgba(255, 255, 255, 0.55);
-    font-size: 12px;
+    color: @fg-muted;
+    font-weight: 500;
+    padding: 0 8px;
 }
 
-#cpu {
-    padding-left: 12px;
-}
+#cpu    { margin-left: 2px; padding-left: 12px; border-left: 1px solid @divider; }
+#memory { margin-right: 4px; padding-right: 12px; border-right: 1px solid @divider; }
 
-#memory {
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    padding-right: 12px;
-}
+#cpu.warning,    #memory.warning    { color: @yellow; }
+#cpu.critical,   #memory.critical   { color: @red; }
 
-#cpu.warning, #memory.warning { color: @yellow; }
-#cpu.critical, #memory.critical { color: @red; }
+/* ── right: controls ────────────────────────────────── */
 
 #pulseaudio,
 #network,
 #bluetooth,
 #battery {
-    padding: 0 10px;
-    color: rgba(255, 255, 255, 0.68);
+    color: @fg;
+    font-size: 15px;
+    padding: 0 9px;
+    margin: 5px 0;
+    border-radius: 8px;
 }
 
-#pulseaudio {
-    font-size: 14px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+#pulseaudio:hover,
+#network:hover,
+#bluetooth:hover,
+#battery:hover {
+    background: @surface-hover;
 }
 
-#pulseaudio.muted {
-    color: rgba(255, 255, 255, 0.28);
+#pulseaudio.muted,
+#bluetooth.off,
+#bluetooth.disabled,
+#network.disabled {
+    color: @fg-faint;
 }
 
-#network {
-    font-size: 14px;
-}
-
-#bluetooth {
-    font-size: 13px;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-}
+#bluetooth.connected   { color: @accent; }
+#network.disconnected  { color: @red; }
 
 #battery {
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    padding-right: 12px;
+    font-size: 12.5px;
+    margin-right: 2px;
 }
 
-#battery.charging {
-    color: rgba(160, 220, 140, 0.90);
-}
+#battery.charging,
+#battery.plugged,
+#battery.full          { color: @green; }
 
-#battery.warning:not(.charging) {
-    color: @yellow;
-}
+#battery.warning:not(.charging)  { color: @yellow; }
 
 #battery.critical:not(.charging) {
     color: @red;
+    animation: pulse 1.6s ease-in-out infinite alternate;
 }
 
-#network.disconnected {
-    color: @red;
+@keyframes pulse {
+    to { color: @fg-faint; }
 }
 
-#tray {
-    padding: 0 6px 0 10px;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-#tray * {
-    padding: 0 2px;
-}
-
-/* ==============================
-   Tooltips & menus
-   ============================== */
+/* ── tooltips & menus ───────────────────────────────── */
 
 tooltip {
-    border-radius: 8px;
-    background: rgba(11, 11, 16, 0.97);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: @bar-bg;
+    border: 1px solid @bar-border;
+    border-radius: 10px;
 }
 
 tooltip label {
-    padding: 5px 12px;
-    color: rgba(255, 255, 255, 0.82);
+    color: @fg;
+    font-weight: 500;
+    padding: 6px 10px;
 }
 
 menu {
-    border-radius: 8px;
-    background: rgba(11, 11, 16, 0.97);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.82);
+    background: @bar-bg;
+    border: 1px solid @bar-border;
+    border-radius: 10px;
+    padding: 4px;
+    color: @fg;
 }
 
-menu > * {
-    padding: 3px 2px;
+menu menuitem {
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: background-color 160ms ease;
 }
 
-menu > *:hover {
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
+menu menuitem:hover {
+    background: @surface-hover;
 }
