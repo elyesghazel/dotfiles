@@ -3,7 +3,6 @@ local mod         = "SUPER"
 local terminal    = "kitty"
 local fileManager = "nautilus"
 local menu        = "vicinae toggle"
-local vicinaeClip = "vicinae deeplink vicinae://extensions/vicinae/clipboard/history"
 local qsHyprview  = "/home/elyes/apps/qs-hyprview"
 
 local function qs_cmd(mode)
@@ -22,7 +21,6 @@ hl.bind(mod .. " + ALT + down", hl.dsp.exec_cmd("monitor-brightness -10"), { loc
 hl.bind(mod .. " + RETURN",  hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + E",       hl.dsp.exec_cmd(fileManager))
 hl.bind(mod .. " + B",       hl.dsp.exec_cmd("zen-browser"))
-hl.bind(mod .. " + V",       hl.dsp.exec_cmd(vicinaeClip))
 hl.bind("ALT + SPACE",       hl.dsp.exec_cmd(menu))
 hl.bind(mod .. " + ALT + W", hl.dsp.exec_cmd("swww img $(find ~/.config/ml4w/wallpapers/ -type f | shuf -n 1)"))
 
