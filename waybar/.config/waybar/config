@@ -40,7 +40,7 @@
     "custom/start": {
         "format": "󰣇",
         "tooltip": false,
-        "on-click": "vicinae toggle"
+        "on-click": "zunder toggle"
     },
 
     "hyprland/workspaces": {
