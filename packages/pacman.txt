@@ -153,3 +153,6 @@ zathura-pdf-mupdf
 zed
 zoxide
 zram-generator
+python-icalendar
+python-recurring-ical-events
+ttf-material-symbols-variable

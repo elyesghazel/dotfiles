@@ -410,6 +410,7 @@ file that's either outside every stow package or gitignored. The repo ships an
 | `~/.claude.json`, `~/.claude/.credentials.json` | Claude OAuth, machine IDs, MCP servers | rebuilt by `mcp-bootstrap.fish` |
 | `~/.claude/settings.local.json` | Per-machine permission grants | — |
 | `~/.config/gopro.conf` | Jellyfin API key | `gopro/.config/gopro.conf.example` |
+| `~/.config/gcal/calendars` | Google Calendar secret iCal addresses (Waybar agenda) | format in `waybar/.config/waybar/scripts/gcal`; synced as `gcal-calendars` |
 | `~/.config/rclone/rclone.conf` | WebDAV logins | commands in [section 6](#rclone-remotes) |
 | `/etc/wireguard/*.conf` | VPN private key, endpoint | — |
 | `~/.ssh/` | SSH keys, host aliases | — |

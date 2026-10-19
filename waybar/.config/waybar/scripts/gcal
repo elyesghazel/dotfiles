@@ -1,0 +1,639 @@
+#!/usr/bin/python3
+"""Google Calendar for waybar, read from each calendar's secret iCal address.
+
+    gcal waybar    JSON for the custom/gcal module (next event + tooltip agenda)
+    gcal popup     interactive agenda + Apple Reminders for a terminal: enter/click opens
+                   an item's link (obsidian:// first), space/click on ○ completes a reminder
+    gcal toggle    open the popup under the bar, or close it if it is open
+    gcal toggle --big   same, as a large centered overlay (SUPER+K, conf/binds.lua)
+
+Calendars live in ~/.config/gcal/calendars (outside the repo, it holds secret URLs),
+one per line:   <name>  <secret iCal address>
+Google Calendar → Settings → <calendar> → "Secret address in iCal format".
+"""
+
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+CONF = Path(os.environ.get("GCAL_CONF", Path.home() / ".config/gcal/calendars"))
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "waybar-gcal"
+TTL = 600  # seconds before an .ics is fetched again
+POPUP_CLASS = "gcal-popup"
+OVERLAY_CLASS = "gcal-overlay"
+POPUP_W, POPUP_H = 460, 680
+
+# Graphite palette, mirrors colors.dark.css
+FG, MUTED, FAINT, FG_GHOST = "#e6e6ee", "#9a9aac", "#5a5a6a", "#34343f"
+ACCENT, GREEN, YELLOW, RED = "#b4befe", "#a6e3a1", "#f9e2af", "#f38ba8"
+
+
+def calendars():
+    if not CONF.exists():
+        return []
+    out = []
+    for line in CONF.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            name, _, url = line.rpartition(" ")
+            out.append((name.strip() or "Calendar", url.strip()))
+    return out
+
+
+def fetch(url, force=False):
+    CACHE.mkdir(parents=True, exist_ok=True)
+    path = CACHE / (hashlib.sha1(url.encode()).hexdigest() + ".ics")
+    fresh = path.exists() and dt.datetime.now().timestamp() - path.stat().st_mtime < TTL
+    if force or not fresh:
+        try:
+            with urllib.request.urlopen(url, timeout=10) as r:
+                data = r.read()
+            tmp = path.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            tmp.replace(path)
+        except Exception:
+            if not path.exists():
+                raise
+    return path.read_bytes()  # stale cache beats nothing when offline
+
+
+def local(value):
+    """Date or datetime → (aware local datetime, all_day)."""
+    if isinstance(value, dt.datetime):
+        if value.tzinfo is None:
+            value = value.astimezone()
+        return value.astimezone(), False
+    return dt.datetime.combine(value, dt.time()).astimezone(), True
+
+
+def events(days, force=False, keep_past=False):
+    import icalendar
+    import recurring_ical_events
+
+    now = dt.datetime.now().astimezone()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + dt.timedelta(days=days)
+    out = []
+    for name, url in calendars():
+        cal = icalendar.Calendar.from_ical(fetch(url, force))
+        for ev in recurring_ical_events.of(cal).between(start, end):
+            s, all_day = local(ev["DTSTART"].dt)
+            e = local(ev["DTEND"].dt)[0] if "DTEND" in ev else s + dt.timedelta(hours=1)
+            if e <= now and not all_day and not keep_past:
+                continue
+            out.append({
+                "title": str(ev.get("SUMMARY", "(no title)")),
+                "where": str(ev.get("LOCATION", "")),
+                "start": s, "end": e, "all_day": all_day, "cal": name, "kind": "ev",
+                "link": first_link(str(ev.get("URL", "")), str(ev.get("DESCRIPTION", ""))),
+            })
+    out.sort(key=lambda x: (x["start"], not x["all_day"]))
+    return out
+
+
+def day_label(d):
+    today = dt.date.today()
+    rel = {today: "Today", today + dt.timedelta(days=1): "Tomorrow"}.get(d)
+    return f"{rel} · {d:%a %d %b}" if rel else f"{d:%A} · {d:%d %b}"
+
+
+def span(ev):
+    if ev["all_day"]:
+        return "all day"
+    return f"{ev['start']:%H:%M}–{ev['end']:%H:%M}"
+
+
+def until(delta):
+    """timedelta → '25m', '2h 05m', '3d'."""
+    mins = max(0, int(delta.total_seconds() // 60))
+    if mins < 60:
+        return f"{mins}m"
+    if mins < 24 * 60:
+        return f"{mins // 60}h {mins % 60:02d}m"
+    return f"{mins // (24 * 60)}d"
+
+
+def now_next(evs, now):
+    timed = [e for e in evs if not e["all_day"]]
+    current = next((e for e in timed if e["start"] <= now < e["end"]), None)
+    upcoming = next((e for e in timed if e["start"] > now), None)
+    return current, upcoming
+
+
+def esc(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def short(s, n):
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+# ── apple reminders ────────────────────────────────────
+# Through pyicloud, like the `remind` fish function. A listing takes ~4s, so it is cached.
+
+ICLOUD = Path.home() / ".local/bin/icloud"
+REM_CACHE = CACHE / "reminders.json"
+REM_TTL = 180
+LINK = re.compile(r"(obsidian://\S+|https?://\S+)")
+
+
+def icloud(*args):
+    # the icloud fish wrapper keeps the session in ~/.local/state/pyicloud, not /tmp
+    env = {**os.environ, "TMPDIR": str(Path.home() / ".local/state")}
+    return subprocess.run([str(ICLOUD), *args, "--log-level", "error"], env=env,
+                          capture_output=True, text=True, timeout=60)
+
+
+def first_link(*texts):
+    links = [m.group(1).rstrip(").,>") for t in texts if t for m in LINK.finditer(t)]
+    return next((l for l in links if l.startswith("obsidian://")), links[0] if links else None)
+
+
+def fetch_reminders():
+    """Hit iCloud and refresh the cache. Raises on failure."""
+    for _ in range(2):  # iCloud now and then fails once, like remind.fish retries
+        r = icloud("reminders", "list", "--format", "json")
+        if r.returncode == 0:
+            CACHE.mkdir(parents=True, exist_ok=True)
+            tmp = REM_CACHE.with_suffix(".tmp")
+            tmp.write_text(r.stdout)
+            tmp.replace(REM_CACHE)
+            return
+    raise RuntimeError((r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout) else "icloud failed")
+
+
+def reminders_stale():
+    return not REM_CACHE.exists() or time.time() - REM_CACHE.stat().st_mtime > REM_TTL
+
+
+def reminders(done=()):
+    """Open reminders from the cache, soonest due first, undated last."""
+    if not REM_CACHE.exists() or not ICLOUD.exists():
+        return []
+    out = []
+    for r in json.loads(REM_CACHE.read_text()):
+        if r["completed"] or r["deleted"] or r["id"] in done:
+            continue
+        due = dt.datetime.fromisoformat(r["due_date"]).astimezone() if r.get("due_date") else None
+        out.append({
+            "kind": "rem", "id": r["id"], "title": r["title"], "due": due,
+            "all_day": r.get("all_day"), "priority": r.get("priority") or 0,
+            "link": first_link(r["title"], r.get("desc")),
+        })
+    far = dt.datetime.max.replace(tzinfo=dt.timezone.utc)
+    out.sort(key=lambda x: (x["due"] or far, x["title"].lower()))
+    return out
+
+
+def complete(rem_id):
+    r = icloud("reminders", "set-status", rem_id, "--completed")
+    if r.returncode != 0:
+        raise RuntimeError("could not complete reminder")
+
+
+def due_label(rem, now):
+    due = rem["due"]
+    if not due:
+        return "", FAINT
+    d = due.date()
+    if d < now.date() or (not rem["all_day"] and due < now):
+        color = RED
+    elif d == now.date():
+        color = YELLOW
+    else:
+        color = MUTED
+    if d == now.date():
+        day = "today"
+    elif d == now.date() + dt.timedelta(days=1):
+        day = "tmrw"
+    elif abs((d - now.date()).days) < 7:
+        day = f"{d:%a}"
+    else:
+        day = f"{d:%d %b}"
+    return (day if rem["all_day"] else f"{day} {due:%H:%M}"), color
+
+
+# ── waybar ─────────────────────────────────────────────
+
+def cmd_waybar():
+    if not calendars():
+        return print(json.dumps({"text": "", "tooltip": f"Add calendars to {CONF}"}))
+    try:
+        evs = events(3)
+    except Exception as e:
+        return print(json.dumps({"text": "", "class": "error", "tooltip": f"gcal: {e}"}))
+
+    now = dt.datetime.now().astimezone()
+    current, upcoming = now_next(evs, now)
+    text, cls = "", "idle"
+    if current:
+        text, cls = f"{esc(short(current['title'], 26))}  <span alpha='55%'>until {current['end']:%H:%M}</span>", "now"
+    elif upcoming and upcoming["start"] - now < dt.timedelta(hours=12):
+        title = esc(short(upcoming["title"], 26))
+        if upcoming["start"] - now < dt.timedelta(hours=1):
+            text, cls = f"{title}  <span alpha='55%'>in {until(upcoming['start'] - now)}</span>", "soon"
+        else:
+            text = f"<span alpha='55%'>{upcoming['start']:%H:%M}</span>  {title}"
+
+    lines = []
+    if current:
+        lines.append(f"<span color='{GREEN}'>●</span> <b>{esc(current['title'])}</b>  "
+                     f"<span alpha='55%'>ends in {until(current['end'] - now)}</span>")
+    if upcoming:
+        lines.append(f"<span color='{ACCENT}'>→</span> <b>{esc(upcoming['title'])}</b>  "
+                     f"<span alpha='55%'>in {until(upcoming['start'] - now)}</span>")
+    last = None
+    for ev in evs:
+        d = ev["start"].date()
+        if d != last:
+            color = GREEN if d == dt.date.today() else ACCENT
+            lines.append(f"\n<span color='{color}'><b>{day_label(d)}</b></span>")
+            last = d
+        lines.append(f"<span alpha='55%'>{span(ev):<11}</span>  {esc(short(ev['title'], 40))}")
+    now_d = now.date()
+    try:
+        if reminders_stale() and ICLOUD.exists():
+            fetch_reminders()
+    except Exception:
+        pass  # the cached list is good enough for a tooltip
+    due = [r for r in reminders() if r["due"] and r["due"].date() <= now_d + dt.timedelta(days=1)]
+    if due:
+        lines.append(f"\n<span color='{ACCENT}'><b>Reminders</b></span>")
+        for r in due[:6]:
+            label, color = due_label(r, now)
+            lines.append(f"<span color='{color}'>{label:<11}</span>  {esc(short(r['title'], 40))}")
+    tooltip = "\n".join(lines).strip() if lines else "Nothing in the next 3 days"
+    print(json.dumps({"text": text, "class": cls, "tooltip": tooltip}))
+
+
+# ── popup ──────────────────────────────────────────────
+
+def rgb(hex_, bold=False):
+    r, g, b = (int(hex_[i:i + 2], 16) for i in (1, 3, 5))
+    return f"\033[{'1;' if bold else ''}38;2;{r};{g};{b}m"
+
+
+def bg(hex_):
+    r, g, b = (int(hex_[i:i + 2], 16) for i in (1, 3, 5))
+    return f"\033[48;2;{r};{g};{b}m"
+
+
+R = "\033[0m"
+SEL = bg("#262636")    # keyboard selection
+HOVER = bg("#1b1b27")  # row under the mouse
+
+
+def visible(s):
+    return len(re.sub(r"\033\[[0-9;]*m", "", s))
+
+
+# A rendered line is (text, item): `item` is the event or reminder it shows, or None.
+
+def row(width, left, right=""):
+    """Left text with right text pushed to the edge of a `width`-column area."""
+    return f"  {left}{' ' * max(1, width - visible(left) - visible(right))}{right}"
+
+
+def progress(ev, now, width):
+    done = (now - ev["start"]) / (ev["end"] - ev["start"])
+    n = round(max(0.0, min(1.0, done)) * width)
+    return f"{rgb(GREEN)}{'━' * n}{rgb(FG_GHOST)}{'━' * (width - n)}{R}"
+
+
+def heading(label, width, color):
+    return f"  {rgb(color, True)}{label}{R} {rgb(FG_GHOST)}{'─' * max(2, width - len(label) - 1)}{R}"
+
+
+def month_grid(today, busy):
+    import calendar
+    lines = ["  " + " ".join(f"{rgb(FAINT)}{d}{R}" for d in ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"))]
+    for week in calendar.Calendar().monthdayscalendar(today.year, today.month):
+        cells = []
+        for n in week:
+            if n == 0:
+                cells.append("  ")
+            elif n == today.day:
+                cells.append(f"{bg(GREEN)}\033[1;38;2;14;14;20m{n:>2}{R}")
+            elif n < today.day:
+                cells.append(f"{rgb(FG_GHOST)}{n:>2}{R}")
+            elif dt.date(today.year, today.month, n) in busy:
+                cells.append(f"{rgb(ACCENT, True)}{n:>2}{R}")
+            else:
+                cells.append(f"{rgb(MUTED)}{n:>2}{R}")
+        lines.append("  " + " ".join(cells))
+    return [(l, None) for l in lines]
+
+
+def overview(evs, now, width):
+    """Date, now/next."""
+    lines = ["", row(width, f"{rgb(FG, True)}{now:%A, %d %B}{R}", f"{rgb(MUTED)}{now:%H:%M}{R}"), ""]
+    current, upcoming = now_next(evs, now)
+    title_w = width - 22
+    out = [(l, None) for l in lines]
+    if current:
+        out.append((row(width, f"{rgb(GREEN, True)}NOW{R}   {rgb(FG, True)}{short(current['title'], title_w)}{R}",
+                        f"{rgb(MUTED)}ends in {until(current['end'] - now)}{R}"), current))
+        out.append((f"        {progress(current, now, width - 6)}", current))
+    if upcoming:
+        soon = upcoming["start"] - now < dt.timedelta(hours=1)
+        out.append((row(width, f"{rgb(ACCENT, True)}NEXT{R}  {rgb(FG)}{short(upcoming['title'], title_w)}{R}",
+                        f"{rgb(YELLOW if soon else MUTED)}in {until(upcoming['start'] - now)}{R}"), upcoming))
+        where = f"  ·  {short(upcoming['where'], width - 20)}" if upcoming["where"] else ""
+        out.append((f"        {rgb(FAINT)}{upcoming['start']:%a %H:%M}{where}{R}", upcoming))
+    if not (current or upcoming):
+        out.append((f"  {rgb(MUTED)}Nothing coming up.{R}", None))
+    return out
+
+
+def reminder_lines(rems, now, width, status=""):
+    out = [("", None), (heading("Reminders", width, ACCENT), None)]
+    if status:
+        out.append((f"  {rgb(FAINT)}{status}{R}", None))
+    for rem in rems:
+        due, color = due_label(rem, now)
+        flag = f"{rgb(RED, True)}!{R} " if rem["priority"] == 1 else ""
+        link = f" {rgb(ACCENT)}↗{R}" if rem["link"] else ""
+        room = width - len(due) - 9 - (2 if flag else 0)
+        out.append((row(width, f"{rgb(MUTED)}○{R}  {flag}{rgb(FG)}{short(rem['title'], room)}{R}{link}",
+                        f"{rgb(color)}{due}{R}"), rem))
+    if not rems and not status:
+        out.append((f"  {rgb(MUTED)}All done.{R}", None))
+    return out
+
+
+def agenda(evs, now, width, wide=False):
+    """Events grouped by day; `wide` adds the location on the same line."""
+    current, _ = now_next(evs, now)
+    out, last = [], None
+    for ev in evs:
+        d = ev["start"].date()
+        if d != last:
+            out += [("", None), (heading(day_label(d), width, GREEN if d == now.date() else ACCENT), None)]
+            last = d
+        past = not ev["all_day"] and ev["end"] <= now
+        live = ev is current
+        mark = f"{rgb(GREEN)}▌" if live else f"{rgb(FG_GHOST)}▏"
+        t_col, n_col = (FG_GHOST, FAINT) if past else (MUTED, FG)
+        room = width - 16 - (2 if ev["link"] else 0)
+        title = short(ev["title"], room if not wide else min(room, 34))
+        line = f"  {mark}{R} {rgb(t_col)}{span(ev):<11}{R}  {rgb(n_col, live)}{title}{R}"
+        if ev["link"]:
+            line += f" {rgb(ACCENT)}↗{R}"
+        if wide and ev["where"] and room - len(title) > 8:
+            line += f"  {rgb(FAINT)}{short(ev['where'], room - len(title) - 2)}{R}"
+        out.append((line, ev))
+    if last is None:
+        out += [("", None), (f"  {rgb(MUTED)}Nothing in the next weeks.{R}", None)]
+    return out
+
+
+def layout(state, cols):
+    """→ list of rows, each [(text, item, x_from, x_to), ...] (one cell, or two for the overlay)."""
+    now = dt.datetime.now().astimezone()
+    evs, rems = state["events"], state["reminders"]
+    head = [("", None), (f"  {rgb(RED)}{state['error']}{R}", None)] if state["error"] else []
+    if cols < 100:
+        w = cols - 4
+        lines = (head + overview(evs, now, w)
+                 + reminder_lines(rems, now, w, state["rem_status"])
+                 + [("", None)] + month_grid(now.date(), {e["start"].date() for e in evs})
+                 + agenda(evs, now, w))
+        return [[(t, it, 0, cols)] for t, it in lines]
+
+    left_w = 50
+    left = (head + overview(evs, now, left_w - 4)
+            + reminder_lines(rems, now, left_w - 4, state["rem_status"])
+            + [("", None), ("", None)] + month_grid(now.date(), {e["start"].date() for e in evs}))
+    right = agenda(evs, now, cols - left_w - 6, wide=True)
+    rows = []
+    for i in range(max(len(left), len(right))):
+        l = left[i] if i < len(left) else ("", None)
+        r = right[i] if i < len(right) else ("", None)
+        rows.append([(l[0], l[1], 0, left_w), (f"{rgb(FG_GHOST)}│{R}" + r[0], r[1], left_w, cols)])
+    return rows
+
+
+def paint(rows, selected, hovered, height):
+    out = []
+    for cells in rows[:height]:
+        line = ""
+        for text, item, x0, x1 in cells:
+            w = x1 - x0
+            pad = " " * max(0, w - visible(text))
+            shade = item is not None and (SEL if item is selected else HOVER if item is hovered else None)
+            if shade:
+                line += shade + text.replace(R, R + shade) + pad + R
+            else:
+                line += text + pad
+        out.append(line)
+    return out
+
+
+def selectable(rows):
+    """Items in reading order (left column first), each once."""
+    seen, order = set(), []
+    for col in range(max(len(r) for r in rows) if rows else 0):
+        for cells in rows:
+            if col < len(cells):
+                item = cells[col][1]
+                if item is not None and id(item) not in seen:
+                    seen.add(id(item))
+                    order.append(item)
+    return order
+
+
+def open_link(item):
+    url = item.get("link") or ("https://calendar.google.com" if item["kind"] == "ev" else None)
+    if url:
+        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    return bool(url)
+
+
+def cmd_popup():
+    import select
+    import termios
+    import threading
+    import tty
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    wake_r, wake_w = os.pipe()  # background work pokes this to trigger a redraw
+    state = {"events": [], "reminders": [], "error": "", "rem_status": "", "done": set()}
+
+    def load_events(force=False):
+        try:
+            state["events"] = events(28, force, keep_past=True) if calendars() else []
+            state["error"] = "" if calendars() else f"No calendars configured — add them to {CONF}"
+        except Exception as e:
+            state["error"] = f"Could not load calendar: {e}"
+
+    def load_reminders(force=False):
+        state["reminders"] = reminders(state["done"])
+        if not ICLOUD.exists():
+            state["rem_status"] = "pyicloud not installed"
+            return
+        if not (force or reminders_stale()):
+            return
+        if not REM_CACHE.exists():
+            state["rem_status"] = "loading…"
+
+        def work():
+            try:
+                fetch_reminders()
+                state["rem_status"] = ""
+            except Exception as e:
+                state["rem_status"] = f"iCloud: {e}"
+            state["reminders"] = reminders(state["done"])
+            os.write(wake_w, b"x")
+        threading.Thread(target=work, daemon=True).start()
+
+    def finish(item):
+        state["done"].add(item["id"])
+        state["reminders"] = reminders(state["done"])
+
+        def work():
+            try:
+                complete(item["id"])
+                fetch_reminders()
+            except Exception as e:
+                state["done"].discard(item["id"])
+                state["rem_status"] = f"iCloud: {e}"
+            state["reminders"] = reminders(state["done"])
+            os.write(wake_w, b"x")
+        threading.Thread(target=work, daemon=True).start()
+
+    load_events()
+    load_reminders()
+    selected = hovered = None
+    pointer = "default"
+
+    def set_pointer(shape):
+        # kitty OSC 22: mouse pointer shape for this window
+        nonlocal pointer
+        if shape != pointer:
+            sys.stdout.write(f"\033]22;{shape}\033\\")
+            pointer = shape
+
+    try:
+        tty.setcbreak(fd)
+        sys.stdout.write("\033[?25l\033[?1003h\033[?1006h")  # hide cursor, SGR mouse incl. motion
+        while True:
+            size = os.get_terminal_size()
+            rows = layout(state, size.columns)
+            items = selectable(rows)
+            if selected is not None and not any(i is selected for i in items):
+                # the item list was rebuilt: keep the selection on the same thing
+                key = selected.get("id") or (selected["title"], selected["start"])
+                selected = next((i for i in items if (i.get("id") or (i["title"], i.get("start"))) == key), None)
+            if hovered is not None and not any(i is hovered for i in items):
+                hovered = None
+            body = paint(rows, selected, hovered, size.lines - 2)
+            hint = (f"  {rgb(FAINT)}↑↓ select · enter open · space done · "
+                    f"r refresh · q close{R}")
+            sys.stdout.write("\033[H\033[2J" + "\n".join(body) + f"\033[{size.lines};1H" + hint)
+            sys.stdout.flush()
+
+            ready = select.select([fd, wake_r], [], [], 30)[0]
+            if wake_r in ready:
+                os.read(wake_r, 64)
+            if fd not in ready:
+                continue
+            data = os.read(fd, 64).decode(errors="ignore")
+
+            mouse = list(re.finditer(r"\033\[<(\d+);(\d+);(\d+)([Mm])", data))
+            if mouse:
+                close = False
+                for m in mouse:
+                    b, x, y, kind = int(m[1]), int(m[2]) - 1, int(m[3]) - 1, m[4]
+                    cell = next((c for c in rows[y] if c[2] <= x < c[3]), None) if y < len(rows) else None
+                    item = cell[1] if cell else None
+                    if b & 32:  # motion: hover highlight + hand pointer over anything clickable
+                        hovered = item
+                        set_pointer("pointer" if item else "default")
+                    elif b in (64, 65) and items:  # wheel moves the selection
+                        i = next((n for n, it in enumerate(items) if it is selected), -1)
+                        selected = items[max(0, min(len(items) - 1, i + (1 if b == 65 else -1)))]
+                    elif b == 0 and kind == "M" and item:
+                        if item["kind"] == "rem" and x - cell[2] < 5:  # the ○ checks it off
+                            finish(item)
+                            hovered = None
+                        elif open_link(item):
+                            close = True
+                        else:
+                            selected = item
+                if close:
+                    break
+                continue
+
+            if data in ("q", "\033"):
+                break
+            if data in ("j", "\033[B", "k", "\033[A", "\t") and items:
+                i = next((n for n, it in enumerate(items) if it is selected), -1)
+                step = -1 if data in ("k", "\033[A") else 1
+                selected = items[(i + step) % len(items)] if i >= 0 or step > 0 else items[-1]
+            elif data in ("\r", "\n", "o"):
+                if selected is None and data == "o":
+                    open_link({"kind": "ev"})
+                    break
+                if selected is not None and open_link(selected):
+                    break
+            elif data in (" ", "x") and selected is not None and selected["kind"] == "rem":
+                items_before = items
+                finish(selected)
+                i = next((n for n, it in enumerate(items_before) if it is selected), 0)
+                rest = [it for it in items_before if it is not selected]
+                selected = rest[min(i, len(rest) - 1)] if rest else None
+            elif data == "r":
+                load_events(force=True)
+                load_reminders(force=True)
+    finally:
+        sys.stdout.write("\033[?1003l\033[?1006l\033[?25h\033]22;default\033\\")
+        sys.stdout.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def dispatch(lua):
+    # Hyprland's Lua config: `hyprctl dispatch` takes an hl.dsp.* expression
+    subprocess.run(["hyprctl", "dispatch", lua], stdout=subprocess.DEVNULL)
+
+
+def cmd_toggle(big=False):
+    """Small popup under the bar, or with --big a large centered overlay."""
+    cls = OVERLAY_CLASS if big else POPUP_CLASS
+    clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"]))
+    if any(c.get("class") == cls for c in clients):
+        dispatch(f'hl.dsp.window.close({{ window = "class:^({cls})$" }})')
+        return
+    mon = next(m for m in json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
+               if m["focused"])
+    mw, mh = mon["width"] / mon["scale"], mon["height"] / mon["scale"]
+    if big:
+        w, h = int(mw * 0.62), int(mh * 0.72)
+        x, y = mon["x"] + int((mw - w) / 2), mon["y"] + int((mh - h) / 2)
+        extra = "-o font_size=13 -o window_padding_width=28 -o background_opacity=0.97"
+        rules_extra = ", dim_around = true, stay_focused = true"
+    else:
+        w, h = POPUP_W, POPUP_H
+        x, y = mon["x"] + int((mw - w) / 2), mon["y"] + 52  # bar height + top margin + gap
+        extra = "-o window_padding_width=14 -o background_opacity=0.94"
+        rules_extra = ""
+    cmd = (f"kitty --class {cls} -o confirm_os_window_close=0 -o background=#0e0e14 {extra} "
+           f"-e {Path(__file__).resolve()} popup")
+    rules = f'{{ float = true, pin = true, size = "{w} {h}", move = "{x} {y}"{rules_extra} }}'
+    dispatch(f"hl.dsp.exec_cmd({json.dumps(cmd)}, {rules})")
+
+
+if __name__ == "__main__":
+    arg = sys.argv[1] if len(sys.argv) > 1 else "waybar"
+    if arg == "toggle":
+        cmd_toggle(big="--big" in sys.argv)
+    else:
+        {"waybar": cmd_waybar, "popup": cmd_popup}.get(arg, cmd_waybar)()
