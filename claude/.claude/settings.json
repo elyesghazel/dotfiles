@@ -7,7 +7,9 @@
   },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
-    "i-have-adhd@i-have-adhd": true
+    "i-have-adhd@i-have-adhd": true,
+    "shortcuts-playground@shortcuts-playground": true,
+    "marketing@synced": false
   },
   "extraKnownMarketplaces": {
     "claude-hud": {
@@ -21,10 +23,17 @@
         "source": "github",
         "repo": "ayghri/i-have-adhd"
       }
+    },
+    "shortcuts-playground": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/viticci/shortcuts-playground-plugin.git"
+      }
     }
   },
   "effortLevel": "high",
   "theme": "dark",
+  "switchModelsOnFlag": true,
   "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true
 }

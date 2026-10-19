@@ -182,6 +182,21 @@
     border-radius: 6px;
 }
 
+/* ── right: claude usage (session · week) ───────────── */
+
+#custom-claude {
+    color: @fg-muted;
+    font-weight: 500;
+    padding: 0 10px 0 12px;
+    margin-left: 2px;
+    border-left: 1px solid @divider;
+}
+
+#custom-claude:hover    { color: @fg; }
+#custom-claude.warning  { color: @yellow; }
+#custom-claude.critical { color: @red; }
+#custom-claude.error    { color: @fg-faint; }
+
 /* ── right: stats ───────────────────────────────────── */
 
 #cpu,

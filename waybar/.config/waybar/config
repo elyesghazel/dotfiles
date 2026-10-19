@@ -22,7 +22,7 @@
 
     "group/right": {
         "orientation": "horizontal",
-        "modules": ["group/tray", "cpu", "memory", "pulseaudio", "network", "bluetooth", "battery"]
+        "modules": ["group/tray", "custom/claude", "cpu", "memory", "pulseaudio", "network", "bluetooth", "battery"]
     },
 
     "group/tray": {
@@ -117,6 +117,14 @@
     "tray": {
         "icon-size": 14,
         "spacing": 10
+    },
+
+    "custom/claude": {
+        "exec": "~/.config/waybar/scripts/claude-usage",
+        "return-type": "json",
+        "interval": 60,
+        "escape": false,
+        "on-click": "xdg-open https://claude.ai/settings/usage"
     },
 
     "cpu": {

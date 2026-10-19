@@ -1,0 +1,96 @@
+#!/usr/bin/python3
+"""Claude plan usage for waybar: the 5-hour session and the weekly limit.
+
+    claude-usage          JSON for the custom/claude module
+
+Reads the OAuth token Claude Code keeps in ~/.claude/.credentials.json and asks the same
+endpoint `/usage` does. The token is only ever sent to api.anthropic.com. Claude Code
+refreshes it on its own, so after a long idle the module shows the last cached numbers
+until the next `claude` run. Responses are cached for TTL seconds; the endpoint is
+rate-limited and the numbers move slowly.
+"""
+
+import datetime as dt
+import json
+import os
+import urllib.request
+from pathlib import Path
+
+CREDS = Path.home() / ".claude/.credentials.json"
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "waybar-claude.json"
+URL = "https://api.anthropic.com/api/oauth/usage"
+TTL = 180
+
+# Claude Code's own spark, in Claude orange
+LOGO = "<span color='#d97757' size='115%'>✻</span>"
+FAINT = "#5a5a6a"
+
+
+def fetch():
+    token = json.loads(CREDS.read_text())["claudeAiOauth"]["accessToken"]
+    req = urllib.request.Request(URL, headers={
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": "oauth-2025-04-20",
+        "Content-Type": "application/json",
+    })
+    with urllib.request.urlopen(req, timeout=10) as r:
+        data = json.load(r)
+    tmp = CACHE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.replace(CACHE)
+    return data
+
+
+def usage():
+    fresh = CACHE.exists() and dt.datetime.now().timestamp() - CACHE.stat().st_mtime < TTL
+    if fresh:
+        return json.loads(CACHE.read_text()), None
+    try:
+        return fetch(), None
+    except Exception as e:
+        if CACHE.exists():
+            return json.loads(CACHE.read_text()), e  # stale beats nothing
+        raise
+
+
+def until(iso):
+    if not iso:
+        return "—"
+    left = dt.datetime.fromisoformat(iso.replace("Z", "+00:00")) - dt.datetime.now(dt.timezone.utc)
+    mins = max(0, int(left.total_seconds() // 60))
+    d, h, m = mins // 1440, mins // 60 % 24, mins % 60
+    return f"{d}d {h}h" if d else f"{h}h {m:02d}m" if h else f"{m}m"
+
+
+def bar(pct, width=20):
+    n = round(min(pct, 100) / 100 * width)
+    return "█" * n + f"<span color='{FAINT}'>{'░' * (width - n)}</span>"
+
+
+def main():
+    try:
+        data, err = usage()
+    except Exception as e:
+        return print(json.dumps({"text": f"{LOGO}  ?", "class": "error", "tooltip": f"claude: {e}"}))
+
+    rows = [("Session", data.get("five_hour")), ("Week", data.get("seven_day")),
+            ("Week · Opus", data.get("seven_day_opus"))]
+    rows = [(name, w) for name, w in rows if w]
+    sess = (data.get("five_hour") or {}).get("utilization") or 0
+    week = (data.get("seven_day") or {}).get("utilization") or 0
+
+    worst = max(sess, week)
+    cls = "critical" if worst >= 90 else "warning" if worst >= 75 else ""
+    text = f"{LOGO}  {sess:.0f}%  <span alpha='55%'>{week:.0f}%</span>"
+    tip = "\n".join(
+        f"<b>{name}</b>  {w['utilization']:.0f}%  <span alpha='55%'>resets in {until(w.get('resets_at'))}</span>\n"
+        f"<tt>{bar(w['utilization'])}</tt>"
+        for name, w in rows
+    )
+    if err:
+        tip += f"\n<span color='{FAINT}'>stale: {err}</span>"
+    print(json.dumps({"text": text, "class": cls, "tooltip": tip}))
+
+
+if __name__ == "__main__":
+    main()

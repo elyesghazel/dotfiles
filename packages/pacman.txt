@@ -31,12 +31,14 @@ drawio-desktop
 dunst
 efibootmgr
 fastfetch
+fd
 ffmpegthumbnailer
 firefox
 fish
 flatpak
 fprintd
 fwupd
+fzf
 ghostty
 git
 github-cli
@@ -56,6 +58,7 @@ intel-ucode
 iwd
 jdk21-openjdk
 kamera
+kernel-modules-hook
 kicad
 kitty
 lazygit
@@ -98,7 +101,9 @@ polkit-kde-agent
 poppler-glib
 powertop
 prusa-slicer
+python-icalendar
 python-pillow
+python-recurring-ical-events
 qt5-wayland
 qt6-wayland
 quickshell
@@ -126,6 +131,7 @@ ttf-cascadia-code-nerd
 ttf-fira-code
 ttf-fira-sans
 ttf-firacode-nerd
+ttf-material-symbols-variable
 tumbler
 tuned
 tuned-ppd
@@ -153,6 +159,3 @@ zathura-pdf-mupdf
 zed
 zoxide
 zram-generator
-python-icalendar
-python-recurring-ical-events
-ttf-material-symbols-variable

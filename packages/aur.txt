@@ -19,7 +19,6 @@ peaclock
 poweralertd
 python-pywal16
 spicetify-cli
-spicetify-cli-debug
 spotify
 swaylock-effects
 teams-for-linux
@@ -32,5 +31,4 @@ waybar-module-pacman-updates-git
 wlogout
 wttrbar
 yay
-yay-debug
 zen-browser-bin
