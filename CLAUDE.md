@@ -87,9 +87,26 @@ Key Lua API used:
 Config is in `waybar/.config/waybar/`. The bar uses three floating pill groups:
 - **Left** (`group/left`): launcher + workspaces + mpris
 - **Center**: clock
-- **Right** (`group/right`): cpu + memory + pulseaudio + network + bluetooth + battery + tray
+- **Right** (`group/right`): tray drawer (hover the chevron) + cpu + memory + pulseaudio + network + bluetooth + battery
 
-Colors come from `colors/colors.css` (symlinked to `colors.dark.css` or `colors.light.css`). After editing config or CSS, restart waybar with `pkill waybar; waybar &`.
+Colors come from `colors/colors.css` (symlinked to `colors.dark.css` or `colors.light.css`);
+`style.css` uses only those tokens, so both palettes must define the same names. The cpu and
+memory icons are Google Material Symbols codepoints (`ttf-material-symbols-variable`) set via a
+pango `font_family` span; without that font they fall back to unrelated Nerd Font glyphs.
+`reload_style_on_change` is on, so CSS edits apply live; config edits still need
+`pkill waybar; waybar &`.
+
+`scripts/gcal` is the Google Calendar agenda: the `custom/gcal` module next to the clock shows
+the next event, and clicking either opens a floating kitty popup; `SUPER+K` opens a large
+centered two-column overlay (`gcal toggle --big`). The popup also lists open Apple Reminders
+(via `~/.local/bin/icloud`, cached 3 min in `~/.cache/waybar-gcal/reminders.json`): click
+or enter opens the first `obsidian://` / `https://` link in an item, space or a click on
+`○` completes a reminder. Hover uses kitty's OSC 22 pointer shape, so it needs kitty. It reads secret iCal
+addresses from the untracked `~/.config/gcal/calendars` (`<name> <url>` per line, synced
+as the `gcal-calendars` secrets item) and caches
+the `.ics` files for 10 min in `~/.cache/waybar-gcal`. With the Lua config, `hyprctl dispatch`
+takes an `hl.dsp.*` expression (`hyprctl dispatch 'hl.dsp.exec_cmd("cmd", { float = true })'`) —
+the old `hyprctl dispatch exec '[float] cmd'` form fails silently from Waybar.
 
 ## Fish functions
 
