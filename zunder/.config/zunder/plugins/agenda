@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+# Upcoming events and open Apple Reminders, from the same caches as waybar's gcal.
+# Enter on an event opens its link (or the day in Google Calendar), on a reminder ticks it off.
+# @zunder.name   Agenda
+# @zunder.prefix ag
+# @zunder.glyph  
+import datetime as dt
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import zcal  # noqa: E402
+
+query = (sys.argv[1] if len(sys.argv) > 1 else "").lower().split()
+g = zcal.gcal()
+now = dt.datetime.now().astimezone()
+
+
+def wanted(*texts):
+    hay = " ".join(t for t in texts if t).lower()
+    return all(w in hay for w in query)
+
+
+try:
+    events = g.events(14)
+except Exception as e:
+    events = []
+    zcal.emit("calendar not reachable", str(e)[:80], glyph="")
+
+for ev in events:
+    if not wanted(ev["title"], ev["where"], ev["cal"]):
+        continue
+    live = ev["start"] <= now < ev["end"] and not ev["all_day"]
+    hint = "now" if live else ("today" if ev["all_day"] and ev["start"].date() == now.date()
+                               else f"in {g.until(ev['start'] - now)}" if ev["start"] > now else "")
+    sub = f"{g.day_label(ev['start'].date())}  {g.span(ev)}" + (f" · {ev['where']}" if ev["where"] else "")
+    link = ev["link"] or f"https://calendar.google.com/calendar/r/day/{ev['start']:%Y/%m/%d}"
+    zcal.emit(ev["title"], sub, hint, "" if live else "", {"open": link})
+
+if g.reminders_stale():
+    zcal.refresh_detached()
+for rem in g.reminders():
+    if not wanted(rem["title"]):
+        continue
+    due, _ = g.due_label(rem, now)
+    zcal.emit(rem["title"], f"reminder · {due}" if due else "reminder", "↵ done", "",
+              {"run": zcal.me("done", rem["id"], rem["title"])})
