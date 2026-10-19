@@ -4,7 +4,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("waybar")
     hl.exec_cmd("dunst")
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
-    hl.exec_cmd("vicinae server")
+    hl.exec_cmd("zunder server")
     hl.exec_cmd("nm-applet")
     -- wallpaper & display
     hl.exec_cmd("awww-daemon")

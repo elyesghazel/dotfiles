@@ -2,7 +2,7 @@
 local mod         = "SUPER"
 local terminal    = "kitty"
 local fileManager = "nautilus"
-local menu        = "vicinae toggle"
+local menu        = "zunder toggle"
 local qsHyprview  = "/home/elyes/apps/qs-hyprview"
 
 local function qs_cmd(mode)
@@ -22,6 +22,9 @@ hl.bind(mod .. " + RETURN",  hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + E",       hl.dsp.exec_cmd(fileManager))
 hl.bind(mod .. " + B",       hl.dsp.exec_cmd("zen-browser"))
 hl.bind("ALT + SPACE",       hl.dsp.exec_cmd(menu))
+hl.bind("ALT + TAB",         hl.dsp.exec_cmd("zunder switch"))
+hl.bind("ALT + SHIFT + TAB", hl.dsp.exec_cmd("zunder switch-prev"))
+hl.bind(mod .. " + V",       hl.dsp.exec_cmd("zunder show 'clip '"))
 hl.bind(mod .. " + ALT + W", hl.dsp.exec_cmd("swww img $(find ~/.config/ml4w/wallpapers/ -type f | shuf -n 1)"))
 
 -- session management
