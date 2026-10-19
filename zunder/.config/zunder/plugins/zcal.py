@@ -8,14 +8,17 @@ iCloud session) and adds reminders through the `remind` fish function.
     zcal.py add-reminder <title> [iso]  add a reminder, due at iso time if given
 """
 
-import datetime as dt
-import importlib.util
+import sys
+
+sys.dont_write_bytecode = True  # no __pycache__ next to gcal or in the plugins folder
+
+import datetime as dt  # noqa: E402
+import importlib.util  # noqa: E402
 import json
 import os
 import re
 import shlex
 import subprocess
-import sys
 import urllib.parse
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
