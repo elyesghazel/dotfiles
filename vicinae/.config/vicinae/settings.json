@@ -113,7 +113,8 @@
          },
          "entrypoints": {
             "history": {
-               "alias": "cph"
+               "alias": "cph",
+               "shortcut": "super+V"
             }
          }
       },
