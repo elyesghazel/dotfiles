@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+# Add an Apple Reminder: `rem call mum tomorrow 18:00`, `rem pay rent fri`, `rem parcel @ in 2h`.
+# The date is read from the end of the text (or after @); without a time it's due at 9:00.
+# @zunder.name   Add Reminder
+# @zunder.prefix rem
+# @zunder.glyph  
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import zcal  # noqa: E402
+
+text = sys.argv[1].strip() if len(sys.argv) > 1 else ""
+if not text:
+    zcal.emit("type a reminder", "e.g. call mum tomorrow 18:00 · pay rent fri · parcel @ in 2h", glyph="")
+    sys.exit()
+
+what, at, has_time = zcal.split_when(text)
+if at:
+    zcal.emit(f"Remind: {what}", f"due {zcal.when_label(at, True)}", "↵ add",
+              action={"run": zcal.me("add-reminder", what, at.strftime("%Y-%m-%dT%H:%M"))})
+zcal.emit(f"Remind: {text}", "no due date", "↵ add" if not at else "",
+          action={"run": zcal.me("add-reminder", text)})
