@@ -224,7 +224,7 @@
     color: @fg-faint;
 }
 
-#bluetooth.connected   { color: @accent; }
+#bluetooth.connected   { color: @accent; font-size: 12.5px; }
 #network.disconnected  { color: @red; }
 
 #battery {
