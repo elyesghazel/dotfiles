@@ -47,6 +47,7 @@ dotfiles/
 ├── spicetify/   → ~/.config/spicetify/
 ├── claude/      → ~/.claude/    (global CLAUDE.md, settings.json, skills/, bin/)
 ├── gopro/       → ~/.local/bin/, ~/.local/libexec/gopro/, ~/.config/
+├── ssh/         → ~/.ssh/config.d/  (tailnet host aliases)
 ├── autoupdate/  # root timer for unattended upgrades (copied by setup.sh, not stowed)
 └── packages/    # package lists and update script (not stowed)
 ```
@@ -122,6 +123,8 @@ Custom functions live in `fish/.config/fish/functions/`. Notable ones:
 | `vpn [up\|down\|status]` | Toggle the WireGuard tunnel; bare `vpn` flips it |
 | `remind [text] [@ when]` | Apple Reminders via pyicloud: bare lists, `--done <n>` completes |
 | `icloud` | pyicloud CLI with the session in `~/.local/state/pyicloud` (not `/tmp`) |
+| `wake [--status]` | Wake-on-LAN the home PC via the Pi (see `docs/wake-on-lan.md`) |
+| `sleep-pc` | Power the home PC off over SSH |
 
 `wg-quick@wg0` is deliberately **not** enabled at boot — `vpn` brings the tunnel up on
 demand instead. `vpn status` reads `ip` rather than `wg show` so it never triggers a sudo
@@ -142,6 +145,14 @@ Environment-specific fish config goes in `fish/.config/fish/host/arch.fish` or
 outside `conf.d/` on purpose: fish auto-sources every file in `conf.d/` regardless of
 that check, so while they lived there both ran on every machine — the Arch box was
 picking up WSL's `DOCKER_CONFIG`, `NODE_OPTIONS` and `nvm use latest`.
+
+## SSH
+
+`ssh/` holds only `config.d/tailnet.conf` — MagicDNS aliases (`arch`, `laptop`, `pi`,
+`server-ts`). The repo is public, so public IPs stay in each machine's untracked
+`~/.ssh/config`, which must start with `Include config.d/*.conf`. `sleep-pc` powers off
+through Hyprland (`hl.dsp.exec_cmd`) because polkit refuses `systemctl poweroff` from an
+SSH session.
 
 ## GoPro pipeline
 
