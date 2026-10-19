@@ -20,11 +20,12 @@ end
 function wake --description 'Wake a home machine over Wake-on-LAN via the Pi'
     # ---- config ----------------------------------------------------------
     # Tailscale hostname of the always-on Pi on the home LAN.
-    set -l pi pi-home
+    set -l pi pi
     # target -> tailscale hostname -> MAC of its WIRED nic.
     # Get the MAC on the target with:  ip -br link
     set -l ts_host elyes-arch
-    set -l mac "FILL:ME:IN:00:00:00"
+    # enp5s0 on elyes-arch (dc:41:a9:da:03:f9 is its WiFi card — WoL ignores that one).
+    set -l mac "f0:2f:74:1f:b2:53"
     # ----------------------------------------------------------------------
 
     if contains -- --status $argv

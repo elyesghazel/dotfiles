@@ -15,7 +15,8 @@ laptop/phone ──tailnet──▶ pi-home ──broadcast──▶ elyes-arch
              ◀──────────── tailnet ───────── ssh / rustdesk
 ```
 
-Day to day this is one command: `wake` (see `fish/functions/wake.fish`).
+Day to day this is one command: `wake` (see `fish/functions/wake.fish`). `sleep-pc`
+powers it back off.
 
 ---
 
@@ -62,7 +63,8 @@ sudo nmcli connection modify "<connection-name>" 802-3-ethernet.wake-on-lan magi
 
 Verify after a reboot that `ethtool` reports `Wake-on: g`.
 
-Record the MAC into `fish/functions/wake.fish` (`set -l macs arch:<MAC>`).
+Record the MAC into `fish/functions/wake.fish` (`set -l mac`). It must be the wired NIC:
+the box also has WiFi (`wlan0`), whose MAC does nothing for WoL.
 
 ---
 
