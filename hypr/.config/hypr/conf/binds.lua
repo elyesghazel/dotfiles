@@ -70,6 +70,9 @@ hl.bind("XF86AudioNext",        hl.dsp.exec_cmd("playerctl next"),              
 hl.bind("XF86AudioPrev",        hl.dsp.exec_cmd("playerctl previous"),                               { locked = true })
 hl.bind("mouse:274",            hl.dsp.exec_cmd("wl-copy -pc"),                                      { consuming = false })
 
+-- calendar overlay (waybar/scripts/gcal)
+hl.bind(mod .. " + K", hl.dsp.exec_cmd("~/.config/waybar/scripts/gcal toggle --big"))
+
 -- screenshots
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd([[grim -g "$(slurp -w 0)" - | wl-copy]]))
 hl.bind(mod .. " + S",         hl.dsp.exec_cmd("grim - | wl-copy"))
