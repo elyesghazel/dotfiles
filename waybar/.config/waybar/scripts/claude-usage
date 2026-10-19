@@ -19,11 +19,12 @@ from pathlib import Path
 CREDS = Path.home() / ".claude/.credentials.json"
 CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "waybar-claude.json"
 URL = "https://api.anthropic.com/api/oauth/usage"
-TTL = 180
+TTL = 60
 
 # Claude Code's own spark, in Claude orange
-LOGO = "<span color='#d97757' size='115%'>✻</span>"
-FAINT = "#5a5a6a"
+CLAUDE = "#d97757"
+LOGO = f"<span color='{CLAUDE}' size='115%'>✻</span>"
+FAINT, YELLOW, RED = "#5a5a6a", "#f9e2af", "#f38ba8"
 
 
 def fetch():
@@ -53,18 +54,26 @@ def usage():
         raise
 
 
-def until(iso):
+def resets(iso):
+    """'Resets 19:00 · in 2h 42m', or 'Resets Fri 09:00 · in 4d 22h' past today."""
     if not iso:
-        return "—"
-    left = dt.datetime.fromisoformat(iso.replace("Z", "+00:00")) - dt.datetime.now(dt.timezone.utc)
-    mins = max(0, int(left.total_seconds() // 60))
+        return "Resets —"
+    at = dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone()
+    mins = max(0, int((at - dt.datetime.now(dt.timezone.utc)).total_seconds() // 60))
     d, h, m = mins // 1440, mins // 60 % 24, mins % 60
-    return f"{d}d {h}h" if d else f"{h}h {m:02d}m" if h else f"{m}m"
+    left = f"{d}d {h}h" if d else f"{h}h {m:02d}m" if h else f"{m}m"
+    when = at.strftime("%H:%M" if at.date() == dt.date.today() else "%a %H:%M")
+    return f"Resets {when} · in {left}"
 
 
-def bar(pct, width=20):
-    n = round(min(pct, 100) / 100 * width)
-    return "█" * n + f"<span color='{FAINT}'>{'░' * (width - n)}</span>"
+def bar(pct, width=32):
+    """Eighth-block bar like Claude Code's /usage, coloured by how close the limit is."""
+    eighths = round(min(max(pct, 0), 100) / 100 * width * 8)
+    full, part = divmod(eighths, 8)
+    fill = "█" * full + (" ▏▎▍▌▋▊▉"[part] if part else "")
+    color = RED if pct >= 90 else YELLOW if pct >= 75 else CLAUDE
+    track = "░" * (width - len(fill))
+    return f"<span color='{color}'>{fill}</span><span color='{FAINT}'>{track}</span>"
 
 
 def main():
@@ -73,8 +82,8 @@ def main():
     except Exception as e:
         return print(json.dumps({"text": f"{LOGO}  ?", "class": "error", "tooltip": f"claude: {e}"}))
 
-    rows = [("Session", data.get("five_hour")), ("Week", data.get("seven_day")),
-            ("Week · Opus", data.get("seven_day_opus"))]
+    rows = [("Current session", data.get("five_hour")), ("Current week (all models)", data.get("seven_day")),
+            ("Current week (Opus)", data.get("seven_day_opus"))]
     rows = [(name, w) for name, w in rows if w]
     sess = (data.get("five_hour") or {}).get("utilization") or 0
     week = (data.get("seven_day") or {}).get("utilization") or 0
@@ -82,9 +91,10 @@ def main():
     worst = max(sess, week)
     cls = "critical" if worst >= 90 else "warning" if worst >= 75 else ""
     text = f"{LOGO}  {sess:.0f}%  <span alpha='55%'>{week:.0f}%</span>"
-    tip = "\n".join(
-        f"<b>{name}</b>  {w['utilization']:.0f}%  <span alpha='55%'>resets in {until(w.get('resets_at'))}</span>\n"
-        f"<tt>{bar(w['utilization'])}</tt>"
+    tip = "\n\n".join(
+        f"<b>{name}</b>\n"
+        f"<tt>{bar(w['utilization'])}  {w['utilization']:.0f}% used</tt>\n"
+        f"<span alpha='55%'>{resets(w.get('resets_at'))}</span>"
         for name, w in rows
     )
     if err:
