@@ -1,9 +1,3 @@
-local qsHyprview = "/home/elyes/apps/qs-hyprview"
-
-local function qs_cmd(mode)
-    return ("quickshell ipc -p %s call expose toggle '%s'"):format(qsHyprview, mode)
-end
-
 hl.config({
     gestures = {
         workspace_swipe_distance                = 150,
@@ -20,13 +14,11 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({
     fingers   = 3,
     direction = "up",
-    action    = function() hl.exec_cmd(qs_cmd("smartgrid")) end,
+    action    = function() hl.exec_cmd("zunder overview") end,
 })
 
 hl.gesture({
     fingers   = 3,
     direction = "down",
-    action    = function()
-        hl.exec_cmd(("quickshell ipc -p %s call expose close"):format(qsHyprview))
-    end,
+    action    = function() hl.exec_cmd("zunder hide") end,
 })
