@@ -12,3 +12,10 @@ hl.window_rule({
     size   = "980 660",
     center = true,
 })
+
+-- zunder opens and closes instantly instead of sliding and fading in
+hl.layer_rule({
+    name    = "zunder-no-anim",
+    match   = { namespace = "^zunder$" },
+    no_anim = true,
+})
