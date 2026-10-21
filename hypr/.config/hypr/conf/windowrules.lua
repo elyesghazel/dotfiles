@@ -13,9 +13,9 @@ hl.window_rule({
     center = true,
 })
 
--- zunder opens and closes instantly instead of sliding and fading in
+-- zunder fades in and out quickly instead of sliding (speed: fadeLayersIn/Out in animations.lua)
 hl.layer_rule({
-    name    = "zunder-no-anim",
-    match   = { namespace = "^zunder$" },
-    no_anim = true,
+    name      = "zunder-fade",
+    match     = { namespace = "^zunder$" },
+    animation = "fade",
 })
