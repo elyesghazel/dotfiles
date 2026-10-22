@@ -16,3 +16,4 @@ require("conf.windowrules")
 require("conf.binds")
 pcall(require, "zunder") -- global keybinds set in zunder with Ctrl+B
 require("conf.host")
+pcall(require, "zunder-setup")
