@@ -1,0 +1,305 @@
+#!/usr/bin/python3
+# Next connections home via transport.opendata.ch (SBB timetable).
+# `home` starts at the stop nearest your iPhone (Find My, through pyicloud);
+# `home winterthur` / `home toni areal` starts at that station instead.
+# Enter pushes the trip to your phone (ntfy); tapping it opens the search on sbb.ch.
+# @zunder.name   Route Home
+# @zunder.prefix home
+# @zunder.glyph  󰔬
+import sys
+
+sys.dont_write_bytecode = True
+
+import datetime as dt  # noqa: E402
+import json
+import os
+import re
+import shlex
+import subprocess
+import time
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+HOME_STOP = "8589594"  # St. Gallen, Krontal
+HOME_NAME = "St. Gallen, Krontal"  # the SBB app link wants names, it reads ids as search text
+DEVICE = "iPhone"      # Find My device whose location counts as "here"
+API = "https://transport.opendata.ch/v1"
+CACHE = Path.home() / ".cache/zunder-home"
+ICLOUD = Path.home() / ".local/bin/icloud"
+SLACK = 8 * 60  # trips this close to the fastest one get the ⚡ mark
+LOC_FRESH, LOC_MAX = 120, 1800  # refresh the location after 2 min, stop trusting it after 30
+
+
+def emit(title, subtitle="", hint="", glyph=None, action=None, preview=None):
+    line = {"title": title, "subtitle": subtitle, "hint": hint}
+    if glyph:
+        line["glyph"] = glyph
+    if action:
+        line["action"] = action
+    if preview:
+        line["preview"] = preview
+    print(json.dumps(line), flush=True)
+
+
+def get(path, ttl=60, **params):
+    """GET an API path, cached for ttl seconds so typing doesn't hammer the API."""
+    url = f"{API}/{path}?{urllib.parse.urlencode(params, doseq=True)}"
+    file = CACHE / (re.sub(r"[^\w.-]", "_", url[len(API):])[:200] + ".json")
+    if file.exists() and time.time() - file.stat().st_mtime < ttl:
+        return json.loads(file.read_text())
+    with urllib.request.urlopen(url, timeout=10) as r:
+        data = json.load(r)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    file.write_text(json.dumps(data))
+    return data
+
+
+# ── where am I ─────────────────────────────────────────
+
+LOC = CACHE / "location.json"
+LOC_ERR = CACHE / "location.err"
+
+
+DEVICE_ID = CACHE / "device.id"
+
+
+def icloud(*args):
+    env = {**os.environ, "TMPDIR": str(Path.home() / ".local/state")}  # same session as `icloud`
+    r = subprocess.run([str(ICLOUD), *args, "--format", "json", "--log-level", "error"],
+                       env=env, capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        out = (r.stderr or r.stdout).strip().splitlines()
+        raise RuntimeError(out[-1] if out else "icloud failed")
+    return json.loads(r.stdout)
+
+
+def device_id():
+    """Find My id of the DEVICE, looked up once (`devices list` costs a few seconds)."""
+    if DEVICE_ID.exists():
+        return DEVICE_ID.read_text().strip()
+    for d in icloud("devices", "list"):
+        if DEVICE.lower() in f"{d.get('name')} {d.get('display_name')} {d.get('device_class')}".lower():
+            CACHE.mkdir(parents=True, exist_ok=True)
+            DEVICE_ID.write_text(d["id"])
+            return d["id"]
+    raise RuntimeError(f"Find My has no device named {DEVICE}")
+
+
+def fetch_location():
+    """Ask Find My where the iPhone is and cache it. Raises on failure."""
+    try:
+        loc = icloud("devices", "show", device_id(), "--locate").get("location") or {}
+    except RuntimeError:
+        DEVICE_ID.unlink(missing_ok=True)  # the id may have changed, look it up again next time
+        raise
+    if not loc.get("latitude"):
+        raise RuntimeError(f"Find My returned no location for {DEVICE}, is Location Services on?")
+    CACHE.mkdir(parents=True, exist_ok=True)
+    LOC.write_text(json.dumps({"lat": loc["latitude"], "lon": loc["longitude"],
+                               "acc": loc.get("horizontalAccuracy"), "at": time.time()}))
+
+
+def location():
+    """(lat, lon, age in s) from the cache, fetching first if there is none worth using."""
+    age = time.time() - LOC.stat().st_mtime if LOC.exists() else None
+    if age is None or age > LOC_MAX:
+        if LOC_ERR.exists() and time.time() - LOC_ERR.stat().st_mtime < 60:
+            raise RuntimeError(LOC_ERR.read_text())
+        try:
+            fetch_location()
+        except Exception as e:
+            CACHE.mkdir(parents=True, exist_ok=True)
+            LOC_ERR.write_text(str(e))
+            raise
+        LOC_ERR.unlink(missing_ok=True)
+        age = 0
+    elif age > LOC_FRESH:  # usable, but update it for next time
+        subprocess.Popen([sys.executable, __file__, "--refresh"], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    loc = json.loads(LOC.read_text())
+    return loc["lat"], loc["lon"], age
+
+
+# ── connections ────────────────────────────────────────
+
+def t(stamp):
+    return dt.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%S%z") if stamp else None
+
+
+def line_name(journey):
+    """T51, S12, IC1, B1 — and EC/IR alone when 'number' is really a train number."""
+    cat, num = journey.get("category") or "", (journey.get("number") or "").lstrip("0")
+    return cat if not num or len(num) > 3 else f"{cat}{num}"
+
+
+def short(station):
+    return station.split(", ", 1)[-1]
+
+
+def mins(seconds):
+    m = round(seconds / 60)
+    return f"{m // 60}h{m % 60:02d}" if m >= 60 else f"{m} min"
+
+
+ICON = {"T": "🚋", "B": "🚌", "BAT": "⛴️", "FUN": "🚠", "PB": "🚡", "GB": "🚡"}
+
+
+def show(conn, now, quick=False):
+    leave, arrive = t(conn["from"]["departure"]), t(conn["to"]["arrival"])
+    lines, plan, glyph = [], [], None
+    landed, walked = None, 0  # last vehicle's arrival, and the walk since, for the change line
+    for s in conn["sections"]:
+        dep, arr = s["departure"], s["arrival"]
+        if s.get("journey"):
+            j = s["journey"]
+            name = line_name(j)
+            lines.append(name)
+            glyph = glyph or ("󰃧" if j.get("category") == "B" else "󰔬")
+            if landed:
+                gap = mins((t(dep["departure"]) - landed).total_seconds())
+                tight = "⚠️ " if (t(dep["departure"]) - landed).total_seconds() < 4 * 60 else ""
+                plan += [f"   {tight}⇄ {gap} to change" + (f" · walk {mins(walked)}" if walked else ""), ""]
+            elif walked:
+                plan += [f"🚶 walk {mins(walked)}", ""]
+            late = f" +{dep['delay']}'" if dep.get("delay") else ""
+            track = f" · pl {dep['platform']}" if dep.get("platform") else ""
+            plan += [f"{ICON.get(j.get('category'), '🚆')} {name} → {j['to']}",
+                     f"   {t(dep['departure']):%H:%M}{late}  {dep['station']['name']}{track}",
+                     f"   {t(arr['arrival']):%H:%M}  {arr['station']['name']}"]
+            landed, walked = t(arr["arrival"]), 0
+        elif s.get("walk"):
+            glyph = glyph or "󰖃"
+            walked += s["walk"].get("duration") or 0
+    if walked:  # otherwise the last leg's arrival line already says it
+        plan += ["", f"🚶 walk {mins(walked)}", f"🏁 {arrive:%H:%M}  {conn['to']['station']['name']}"]
+
+    wait = (leave - now).total_seconds()
+    when = "now" if wait < 60 else f"in {mins(wait)}"
+    delay = next((s["departure"]["delay"] for s in conn["sections"] if s.get("journey")
+                  and s["departure"].get("delay")), None)
+    hint = f"{when} · +{delay}'" if delay else when
+    changes = conn.get("transfers") or 0
+    summary = f"{mins((arrive - leave).total_seconds())} · " + (
+        f"{changes} change{'s' * (changes != 1)}" if changes else "direct")
+
+    head = f"{leave:%H:%M} → {arrive:%H:%M}"
+    text = "\n".join([f"{head} · {when}", summary, "", *plan])
+    send = " ".join(shlex.quote(a) for a in (sys.executable, os.path.realpath(__file__), "--send",
+                                             f"{conn['from']['station']['id']}|{conn['from']['station']['name']}", leave.strftime("%Y-%m-%dT%H:%M"),
+                                             f"{'⚡ ' if quick else ''}{head} · {' '.join(lines)}",
+                                             "\n".join([summary, "", *plan])))
+    emit(head, f"{summary} · {' '.join(lines)}", hint, "⚡" if quick else glyph or "󰔬", {"run": send},
+         preview=("⚡ fast\n" if quick else "") + text)
+
+
+def starts_with_walk(conn):
+    """Trips that open with a long walk to another station (Toni-Areal → Hardbrücke, 13 min)."""
+    walk = (conn["sections"] or [{}])[0].get("walk")
+    return bool(walk) and (walk.get("duration") or 0) > 300
+
+
+def duration(conn):
+    return (t(conn["to"]["arrival"]) - t(conn["from"]["departure"])).total_seconds()
+
+
+def fast(conns):
+    """Ids of the trips worth taking: fewest changes on offer, and within SLACK of the fastest
+    of those, i.e. the IC5/EC ones rather than IC1 (an extra change) or IR13 (slow)."""
+    fewest = min((c.get("transfers") or 0 for c in conns), default=0)
+    few = [c for c in conns if (c.get("transfers") or 0) <= fewest]
+    fastest = min((duration(c) for c in few), default=0)
+    return {id(c) for c in few if duration(c) <= fastest + SLACK}
+
+
+# ── send to phone ──────────────────────────────────────
+
+def ntfy_config():
+    """NTFY_URL / NTFY_TOPIC / NTFY_TOKEN from ~/.claude/secrets.fish, the same ones `clip` uses."""
+    text = (Path.home() / ".claude/secrets.fish").read_text()
+    conf = dict(re.findall(r"^\s*set\s+-gx\s+(NTFY_\w+)\s+['\"]?([^'\"\s]+)", text, re.M))
+    return conf["NTFY_URL"], conf["NTFY_TOPIC"], conf["NTFY_TOKEN"]
+
+
+def send(start, leave, title, body):
+    """Push the trip to the phone. Tapping it opens the search on sbb.ch at that time;
+    the button opens it in the SBB app, which ignores the time (it reads every format as 1970)."""
+    from_id, from_name = start.split("|", 1)
+    day, clock = leave.split("T")
+    stops = f"{from_name}_I{from_id}~{HOME_NAME}_I{HOME_STOP}"
+    link = "https://www.sbb.ch/en?" + urllib.parse.urlencode(
+        # searched at the trip's own departure, so it's the first one listed
+        {"stops": stops, "day": day, "time": clock.replace(":", "_"), "moment": "dep"},
+        quote_via=urllib.parse.quote)
+    app = "https://app.sbbmobile.ch/timetable?" + urllib.parse.urlencode({"from": from_name, "to": HOME_NAME})
+    try:
+        url, topic, token = ntfy_config()
+        # the topic URL like `clip` (the token is refused on the JSON endpoint at the root),
+        # with the options as query parameters so the emoji in the title survive
+        query = urllib.parse.urlencode({"title": title, "tags": "train", "click": link,
+                                        "actions": f"view, SBB app, {app}, clear=true"})
+        req = urllib.request.Request(f"{url}/{topic}?{query}", body.encode(), method="POST", headers={
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "zunder-home"})  # the default Python-urllib agent gets a 403
+        urllib.request.urlopen(req, timeout=10).close()
+        note = ("sent to your phone", title)
+    except Exception as e:
+        note = ("couldn't send the trip", str(e))
+    subprocess.run(["notify-send", "-a", "zunder", *note], check=False)
+
+
+def main():
+    if sys.argv[1:2] == ["--send"]:
+        send(*sys.argv[2:6])
+        return
+    if sys.argv[1:] == ["--refresh"]:
+        try:
+            fetch_location()
+        except Exception:
+            pass
+        return
+
+    query = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
+    note = ""
+    if query:
+        stations = [s for s in get("locations", 300, query=query, type="station")["stations"] if s.get("id")]
+        if not stations:
+            emit(f"no station called “{query}”", "try e.g. winterthur, zürich hb, toni areal", glyph="󰀦")
+            return
+        start, others = stations[0], stations[1:4]
+    else:
+        try:
+            lat, lon, age = location()
+        except Exception as e:
+            emit("can't find your iPhone", str(e)[:120], glyph="󰀦")
+            emit("type a station instead", "e.g. home winterthur", glyph="󰍉", action={"fill": "home "})
+            return
+        near = [s for s in get("locations", 300, x=f"{lat:.4f}", y=f"{lon:.4f}", type="station")["stations"]
+                if s.get("id")]
+        if not near:
+            emit("no stop near your iPhone", f"{lat:.4f}, {lon:.4f}", glyph="󰀦")
+            return
+        start, others = near[0], near[1:4]
+        note = f"{start.get('distance') or 0:.0f} m from your iPhone · {mins(age) + ' ago' if age >= 60 else 'just now'}"
+
+    conns = get("connections", 60, limit=16, **{"from": start["id"], "to": HOME_STOP})["connections"]
+    conns = [c for c in conns if not starts_with_walk(c)][:8]
+    quick = fast(conns)
+    now = dt.datetime.now().astimezone()
+    if not conns:
+        emit(f"no connections from {start['name']}", glyph="󰀦")
+    for c in conns:
+        show(c, now, id(c) in quick)
+
+    if note:
+        emit(start["name"], note, glyph="󰍎")
+    for s in others:
+        emit(f"from {s['name']}", f"{s['distance']:.0f} m away" if s.get("distance") else "",
+             glyph="󰍉", action={"fill": f"home {s['name']}"})
+
+
+try:
+    main()
+except Exception as e:
+    print(f"route home: {e}", file=sys.stderr)
+    sys.exit(1)
