@@ -7,19 +7,22 @@ Reads the OAuth token Claude Code keeps in ~/.claude/.credentials.json and asks 
 endpoint `/usage` does. The token is only ever sent to api.anthropic.com. Claude Code
 refreshes it on its own, so after a long idle the module shows the last cached numbers
 until the next `claude` run. Responses are cached for TTL seconds; the endpoint is
-rate-limited and the numbers move slowly.
+rate-limited and the numbers move slowly, and a 429 is honoured via Retry-After: polling
+through it keeps the limit from ever lifting.
 """
 
 import datetime as dt
 import json
 import os
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 CREDS = Path.home() / ".claude/.credentials.json"
 CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "waybar-claude.json"
+BACKOFF = CACHE.with_suffix(".backoff")  # epoch seconds before which we don't ask again
 URL = "https://api.anthropic.com/api/oauth/usage"
-TTL = 60
+TTL = 300
 
 # Claude Code's own spark, in Claude orange
 CLAUDE = "#d97757"
@@ -34,8 +37,15 @@ def fetch():
         "anthropic-beta": "oauth-2025-04-20",
         "Content-Type": "application/json",
     })
-    with urllib.request.urlopen(req, timeout=10) as r:
-        data = json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            wait = int(e.headers.get("Retry-After") or 600)
+            BACKOFF.write_text(str(dt.datetime.now().timestamp() + wait))
+        raise
+    BACKOFF.unlink(missing_ok=True)
     tmp = CACHE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data))
     tmp.replace(CACHE)
@@ -46,6 +56,12 @@ def usage():
     fresh = CACHE.exists() and dt.datetime.now().timestamp() - CACHE.stat().st_mtime < TTL
     if fresh:
         return json.loads(CACHE.read_text()), None
+    until = float(BACKOFF.read_text()) if BACKOFF.exists() else 0
+    if until > dt.datetime.now().timestamp():
+        err = f"rate limited, retrying {dt.datetime.fromtimestamp(until):%H:%M}"
+        if CACHE.exists():
+            return json.loads(CACHE.read_text()), err
+        raise RuntimeError(err)
     try:
         return fetch(), None
     except Exception as e:
