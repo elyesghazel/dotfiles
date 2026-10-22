@@ -101,7 +101,7 @@ Hyprland example config…). Move them aside first:
 
 ```bash
 cd ~/dotfiles
-stow -n -v fish kitty hypr waybar dunst starship vicinae claude systemd 2>&1 | grep 'existing target'
+stow -n -v fish kitty hypr waybar dunst starship vicinae claude systemd secrets yazi zunder 2>&1 | grep 'existing target'
 # for each conflicting file:
 mv ~/.config/fish/config.fish ~/.config/fish/config.fish.orig
 ```

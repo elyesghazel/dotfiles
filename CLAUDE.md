@@ -39,6 +39,7 @@ dotfiles/
 ├── waybar/      → ~/.config/waybar/
 ├── kitty/       → ~/.config/kitty/
 ├── yazi/        → ~/.config/yazi/
+├── zunder/      → ~/.config/zunder/  (config, favorites, plugins)
 ├── fish/        → ~/.config/fish/
 ├── dunst/       → ~/.config/dunst/
 ├── starship/    → ~/.config/starship/
