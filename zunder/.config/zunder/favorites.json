@@ -1,0 +1,90 @@
+[
+  {
+    "id": "app:onlyoffice-desktopeditors.desktop",
+    "title": "ONLYOFFICE",
+    "subtitle": "Edit office documents",
+    "hint": "app",
+    "glyph": "",
+    "icon": "onlyoffice-desktopeditors",
+    "action": {
+      "run": "/usr/bin/onlyoffice-desktopeditors"
+    }
+  },
+  {
+    "id": "app:com.github.xournalpp.xournalpp.desktop",
+    "title": "Xournal++",
+    "subtitle": "Take handwritten notes",
+    "hint": "app",
+    "glyph": "",
+    "icon": "com.github.xournalpp.xournalpp",
+    "action": {
+      "run": "xournalpp-wrapper"
+    }
+  },
+  {
+    "id": "app:localsend.desktop",
+    "title": "LocalSend",
+    "subtitle": "An open source cross-platform alternative to AirDrop",
+    "hint": "app",
+    "glyph": "",
+    "icon": "localsend",
+    "action": {
+      "run": "localsend"
+    }
+  },
+  {
+    "id": "app:vesktop.desktop",
+    "title": "Vesktop",
+    "subtitle": "Vesktop is a custom Discord App aiming to give you better performance and improve linux support. Vencord comes pre-installed",
+    "hint": "app",
+    "glyph": "",
+    "icon": "vesktop",
+    "action": {
+      "run": "/usr/bin/vesktop"
+    }
+  },
+  {
+    "id": "app:code-oss.desktop",
+    "title": "Code - OSS",
+    "subtitle": "Code Editing. Redefined.",
+    "hint": "app",
+    "glyph": "",
+    "icon": "com.visualstudio.code.oss",
+    "action": {
+      "run": "code-oss"
+    }
+  },
+  {
+    "id": "cmd:clipboard",
+    "title": "Clipboard History",
+    "subtitle": "everything you copied",
+    "hint": "clip ␣",
+    "glyph": "",
+    "icon": "",
+    "action": {
+      "fill": "clip "
+    }
+  },
+  {
+    "id": "app:teams-for-linux.desktop",
+    "title": "Microsoft Teams for Linux",
+    "subtitle": "Unofficial Microsoft Teams client for Linux.",
+    "hint": "app",
+    "glyph": "",
+    "icon": "teams-for-linux",
+    "action": {
+      "run": "teams-for-linux --gtk-version=3"
+    }
+  },
+  {
+    "id": "app:dev.zed.Zed.desktop",
+    "title": "Zed",
+    "subtitle": "A high-performance, multiplayer code editor.",
+    "hint": "app",
+    "glyph": "",
+    "icon": "zed",
+    "action": {
+      "run": "zeditor"
+    }
+  }
+]

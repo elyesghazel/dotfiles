@@ -1,0 +1,18 @@
+terminal = ""
+search_url = "https://google.com/?q={q}"
+currency = "CHF"
+font = "JetBrainsMono Nerd Font"
+font_size = 11.0
+width = 820
+height = 460
+dim = 0.35
+theme = "graphite"
+accent = ""
+icons = true
+previews = true
+alt_release = true
+start_windows = true
+start_apps = 24
+disabled = []
+hide_windows = []
+update_check = true
