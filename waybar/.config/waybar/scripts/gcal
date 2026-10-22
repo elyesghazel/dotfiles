@@ -6,6 +6,7 @@
                    an item's link (obsidian:// first), space/click on ○ completes a reminder
     gcal toggle    open the popup under the bar, or close it if it is open
     gcal toggle --big   same, as a large centered overlay (SUPER+K, conf/binds.lua)
+    gcal lock      agenda + reminders as pango markup for hyprlock.conf
 
 Calendars live in ~/.config/gcal/calendars (outside the repo, it holds secret URLs),
 one per line:   <name>  <secret iCal address>
@@ -271,6 +272,50 @@ def cmd_waybar():
             lines.append(f"<span color='{color}'>{label:<11}</span>  {esc(short(r['title'], 40))}")
     tooltip = "\n".join(lines).strip() if lines else "Nothing in the next 3 days"
     print(json.dumps({"text": text, "class": cls, "tooltip": tooltip}))
+
+
+# ── hyprlock ───────────────────────────────────────────
+
+LOCK_LINES = 17  # fixed height, so hyprlock's centered label keeps its top edge in place
+
+
+def cmd_lock():
+    """Agenda + reminders as pango markup for the right column of hyprlock.conf."""
+    now = dt.datetime.now().astimezone()
+    label = lambda s: f"<span size='small' foreground='{FAINT}' letter_spacing='2048'>{s}</span>"
+    lines = [label("UPCOMING")]
+    try:
+        evs = events(3) if calendars() else []
+    except Exception:
+        evs = []
+    last, shown = None, 0
+    for ev in evs:
+        if ev["end"] <= now or shown == 6:
+            continue
+        d = ev["start"].date()
+        if d != last:
+            color = GREEN if d == now.date() else ACCENT
+            lines += ["", f"<span color='{color}'><b>{day_label(d)}</b></span>"]
+            last = d
+        lines.append(f"<span color='{MUTED}'>{span(ev):<11}</span>  {esc(short(ev['title'], 30))}")
+        shown += 1
+    if not shown:
+        lines += ["", f"<span color='{MUTED}'>Nothing in the next 3 days</span>"]
+
+    rems = reminders()  # cache only: waybar keeps it fresh, the lock screen never hits iCloud
+    if rems:
+        lines += ["", "", label("REMINDERS"), ""]
+        for r in rems[:5]:
+            due, color = due_label(r, now)
+            flag = f"<span color='{RED}'>!</span> " if r["priority"] == 1 else ""
+            lines.append(f"<span color='{MUTED}'>○</span>  {flag}{esc(short(r['title'], 24))}"
+                         + (f"  <span color='{color}'>{due}</span>" if due else ""))
+        if len(rems) > 5:
+            lines.append(f"<span color='{FAINT}'>   +{len(rems) - 5} more</span>")
+    lines = lines[:LOCK_LINES]
+    # hyprlock trims trailing blank lines, so the padding ends on an invisible dot
+    lines += [""] * (LOCK_LINES - 1 - len(lines)) + ["<span alpha='1%'>.</span>"]
+    print("\n".join(lines))
 
 
 # ── popup ──────────────────────────────────────────────
@@ -636,4 +681,4 @@ if __name__ == "__main__":
     if arg == "toggle":
         cmd_toggle(big="--big" in sys.argv)
     else:
-        {"waybar": cmd_waybar, "popup": cmd_popup}.get(arg, cmd_waybar)()
+        {"waybar": cmd_waybar, "popup": cmd_popup, "lock": cmd_lock}.get(arg, cmd_waybar)()
