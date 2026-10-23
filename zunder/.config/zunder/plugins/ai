@@ -1,0 +1,200 @@
+#!/usr/bin/python3
+# Quick AI answers: `ai what is a monad?`. A question ending in `?` is answered by Claude Haiku
+# right in zunder (Enter copies it, the preview has all of it); without the `?` nothing is
+# sent, Enter on "Ask Claude" adds it. Either way: Google, a T3 Code draft (question + quick
+# answer, nothing runs until you press Send) and claude.ai are one Enter away.
+#
+# Key: ~/.config/zunder-ai/key (one line, chmod 600), or ZUNDER_AI_KEY / ANTHROPIC_API_KEY in
+# the environment, or `set -gx ZUNDER_AI_KEY …` in ~/.claude/secrets.fish. Without one it
+# falls back to `claude -p --model haiku` (your Claude login, ~3 s instead of ~1 s).
+# @zunder.name   Ask AI
+# @zunder.prefix ai
+# @zunder.glyph  󰚩
+import sys
+
+sys.dont_write_bytecode = True
+
+import hashlib  # noqa: E402
+import json
+import os
+import re
+import subprocess
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+MODEL = os.environ.get("ZUNDER_AI_MODEL", "claude-haiku-5-5")
+MAX_TOKENS = 400
+SYSTEM = ("You answer questions typed into a desktop launcher. Be direct and brief: the answer "
+          "first, at most about 80 words, plain text (no markdown headings, bold or tables; a few "
+          "short '- ' lines are fine). Code only if asked, as a single short snippet. If the "
+          "question needs live data you don't have, say so in one line.")
+T3_LINK = "t3code://new?prompt={q}"  # the desktop app; https://app.t3.codes/new?prompt={q} for the browser
+CLAUDE_AI = "https://claude.ai/new?q={q}"
+CACHE = Path.home() / ".cache/zunder-ai"
+TTL = 30 * 60      # an answer is reused for 30 min, so re-renders and backspacing don't re-ask
+DEBOUNCE = 0.35    # wait this long before asking; a newer keystroke in the meantime wins
+KEY_FILE = Path.home() / ".config/zunder-ai/key"
+SECRETS = Path.home() / ".claude/secrets.fish"
+CONFIG = Path.home() / ".config/zunder/config.toml"
+
+
+def emit(title, subtitle="", hint="", glyph=None, action=None, preview=None):
+    line = {"title": title, "subtitle": subtitle, "hint": hint}
+    if glyph:
+        line["glyph"] = glyph
+    if action:
+        line["action"] = action
+    if preview:
+        line["preview"] = preview
+    print(json.dumps(line), flush=True)
+
+
+def enc(text):
+    return urllib.parse.quote(text, safe="")
+
+
+def search_url():
+    """zunder's own search_url, so this matches the Web fallback that the prefix hides."""
+    try:
+        import tomllib
+        return tomllib.loads(CONFIG.read_text()).get("search_url") or "https://google.com/?q={q}"
+    except Exception:
+        return "https://google.com/?q={q}"
+
+
+# ── asking ─────────────────────────────────────────────
+
+def api_key():
+    for var in ("ZUNDER_AI_KEY", "ANTHROPIC_API_KEY"):
+        if os.environ.get(var, "").strip():
+            return os.environ[var].strip()
+    if KEY_FILE.exists():
+        return KEY_FILE.read_text().strip() or None
+    if SECRETS.exists():
+        m = re.search(r"^\s*set\s+-gx\s+ZUNDER_AI_KEY\s+['\"]?([^'\"\s]+)", SECRETS.read_text(), re.M)
+        if m:
+            return m[1]
+    return None
+
+
+def post(body, key):
+    """POST /v1/messages; an HTTP error comes back as {"error": code, "msg": message}."""
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(), headers={
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2026-10-21",
+        "user-agent": "zunder-ai"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.load(e).get("error", {}).get("message", "")
+        except Exception:
+            msg = ""
+        return {"error": e.code, "msg": msg or str(e.reason)}
+
+
+def ask_api(question, key):
+    body = {
+        "model": MODEL,
+        "max_tokens": MAX_TOKENS,
+        "system": SYSTEM,
+        "thinking": {"type": "disabled"},  # speed over depth; Haiku 5.5 allows it at effort <= high
+        "output_config": {"effort": "low"},
+        "messages": [{"role": "user", "content": question}],
+    }
+    data = post(body, key)
+    if "error" in data and ("thinking" in data["msg"] or "effort" in data["msg"]):
+        # the speed knobs got refused (model changed?): ask again with the model's defaults
+        del body["thinking"], body["output_config"]
+        data = post(body, key)
+    if "error" in data:
+        raise RuntimeError(f"API {data['error']}: {data['msg']}")
+    if data.get("stop_reason") == "refusal":
+        raise RuntimeError("Claude declined this one, try T3 or claude.ai")
+    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+    if data.get("stop_reason") == "max_tokens":
+        text += " …"
+    return text, "Haiku"
+
+
+def ask_cli(question):
+    r = subprocess.run(
+        ["claude", "-p", "--model", "haiku", "--tools", "", "--strict-mcp-config",
+         "--disable-slash-commands", "--no-session-persistence", "--setting-sources", "",
+         "--system-prompt", SYSTEM, question],
+        cwd="/tmp", capture_output=True, text=True, timeout=45, stdin=subprocess.DEVNULL)
+    if r.returncode != 0 or not r.stdout.strip():
+        out = (r.stderr or r.stdout).strip().splitlines()
+        raise RuntimeError(out[-1] if out else "claude -p failed")
+    return r.stdout.strip(), "Haiku via claude -p"
+
+
+def answer(question):
+    """(text, source), cached per question for TTL."""
+    norm = re.sub(r"\s+", " ", question.strip().rstrip("?").strip().lower())
+    file = CACHE / (hashlib.sha1(norm.encode()).hexdigest() + ".json")
+    if file.exists() and time.time() - file.stat().st_mtime < TTL:
+        hit = json.loads(file.read_text())
+        return hit["text"], hit["source"]
+
+    # debounce: only the newest keystroke goes on to ask
+    CACHE.mkdir(parents=True, exist_ok=True)
+    latest = CACHE / "latest"
+    stamp = f"{os.getpid()} {question}"
+    latest.write_text(stamp)
+    time.sleep(DEBOUNCE)
+    if latest.read_text() != stamp:
+        sys.exit(0)  # zunder throws this run's output away anyway
+
+    key = api_key()
+    text, source = ask_api(question, key) if key else ask_cli(question)
+    file.write_text(json.dumps({"q": question, "text": text, "source": source}))
+    return text, source
+
+
+# ── results ────────────────────────────────────────────
+
+def first_line(text, width=96):
+    line = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+    return line if len(line) <= width else line[:width - 1].rstrip() + "…"
+
+
+def handoffs(question, reply=None):
+    prompt = question
+    if reply:
+        prompt += f"\n\n---\nQuick answer I got from Claude Haiku, for context:\n{reply}\n---\n\nLet's go deeper."
+    prompt = prompt[:7900]  # T3 refuses prompt links over 8000 characters
+    emit(f"Search “{question}”", "web search", "web", "",
+         {"open": search_url().replace("{q}", enc(question))})
+    emit("Continue in T3 Code", "new draft with the question" + (" and this answer" if reply else ""),
+         "t3", "󰭹", {"open": T3_LINK.replace("{q}", enc(prompt))})
+    emit("Ask on claude.ai", "new chat", "claude.ai", "󰖟", {"open": CLAUDE_AI.replace("{q}", enc(question))})
+
+
+def main():
+    q = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
+    if not q:
+        emit("ask anything", "end with ? to get a quick answer · e.g. ai how do I undo a git commit?")
+        return
+    if not q.endswith("?"):
+        emit(f"Ask Claude: {q}", "quick answer right here", "↵ ask", action={"fill": f"ai {q}?"})
+        handoffs(q)
+        return
+    try:
+        text, source = answer(q)
+    except Exception as e:
+        emit("no answer", str(e)[:160], "error", "")
+        handoffs(q)
+        return
+    words = len(text.split())
+    emit(first_line(text) or "(empty answer)", f"{source} · {words} words", "↵ copy",
+         action={"copy": text}, preview=text)
+    handoffs(q, text)
+
+
+main()
