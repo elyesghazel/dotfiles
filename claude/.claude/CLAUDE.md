@@ -74,6 +74,17 @@ tool with `skill: "excalidraw-boards"` before answering. Same when I paste a
 This is the default for anything visual, and it wins over `drawio-skill`. Only reach for
 `drawio-skill` when I explicitly say draw.io, or I need an exported PNG/SVG/PDF file.
 
+# show
+
+- **show** (`~/.claude/skills/show/SKILL.md`) - publish pages, reports, previews, videos or a
+  running dev server to `<slug>.elyesghazel.tech` (hub: `lab.elyesghazel.tech`), behind my
+  passkey login by default. Trigger: `/show`
+
+Whenever you want to **show me something visual** — a page, report, mockup, UI preview, chart,
+render, or a dev server — or I say "show me", "send me a link", "let me see it", "can I open it
+on my phone", invoke the Skill tool with `skill: "show"` and publish it instead of describing it
+or pasting screenshots. Private unless I ask for a public link.
+
 # sumry
 
 - **sumry** (`~/.claude/skills/sumry/SKILL.md`) - my self-hosted finances at
