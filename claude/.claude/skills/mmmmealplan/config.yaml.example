@@ -1,0 +1,132 @@
+# Mmmmealplan config — copy this file to config.yaml and edit.
+#
+#   cp config.yaml.example config.yaml
+#
+# Two example shapes are shown below — pick one and delete the other.
+# All fields with comments marked REQUIRED must be present.
+
+# ─── Example A: single-eater household ──────────────────────────────────────
+# Uncomment this block to use it.
+
+# household_size: 1
+#
+# macros:                    # REQUIRED. Daily targets for the eater.
+#   protein_g: 150
+#   carbs_g: 250
+#   fat_g: 80
+#   kcal: 2200
+#
+# restrictions: []           # REQUIRED. Hard. Examples below — see SKILL.md
+#                            # for the allergen-mapping table.
+# # restrictions:
+# #   - vegetarian
+# #   - lactose-free
+# #   - gluten-free
+# #   - nut-free
+#
+# dislikes: []               # REQUIRED. Soft — avoided when possible.
+# # dislikes:
+# #   - olives
+# #   - cilantro
+#
+# meal_cadence:              # REQUIRED. How many of each slot per week (0-7).
+#   breakfast: 7
+#   lunch: 5                 # set 0 if you eat out / skip
+#   dinner: 6
+#
+# fixed_slots: {}            # Optional. Lock specific recipes into specific
+#                            # slots. Filename (without .md) of any recipe in
+#                            # recipes/<slot>/.
+# # fixed_slots:
+# #   breakfast: overnight-oats
+#
+# constraints:               # Optional.
+#   weeknight_dinner_max_minutes: 30
+#
+# equipment:                 # REQUIRED. Limits what recipes the planner
+#                            # picks. Add/remove to match your kitchen.
+#   - oven
+#   - hob
+#   - pan
+#   - pot
+#   - sheet-pan
+#   - microwave
+#   - kettle
+
+
+# ─── Example B: two-eater household with split breakfast ────────────────────
+# Two people share dinner from one pan, but eat different breakfasts.
+# Macros below apply to ONE eater (the "primary" — see is_primary). The other
+# household member's recipes are tracked only for shopping-list quantities.
+# Uncomment this block to use it.
+
+household_size: 2
+
+macros:                      # REQUIRED. Targets for the primary eater only.
+  protein_g: 150
+  carbs_g: 250
+  fat_g: 80
+  kcal: 2200
+
+restrictions:                # REQUIRED.
+  - vegetarian
+
+dislikes: []
+
+meal_cadence:                # REQUIRED.
+  breakfast: 7               # both eat breakfast at home daily
+  lunch: 0                   # both eat at work
+  dinner: 4                  # together, average 4×/week
+
+slot_servings:               # Optional override of household_size per slot.
+  breakfast: 2
+  dinner: 2
+
+fixed_slots:
+  # Split breakfast: each person eats their own dish from the same slot.
+  # Sum of `servings` across items must equal slot_servings.breakfast.
+  # Exactly one item should have is_primary: true.
+  breakfast:
+    - recipe: cooked-oats-with-oatmilk
+      servings: 1
+      is_primary: true
+    - recipe: skyr-with-muesli-and-fruit
+      servings: 1
+
+constraints:
+  weeknight_dinner_max_minutes: 30
+
+equipment:                   # REQUIRED.
+  - oven
+  - hob
+  - pan
+  - pot
+  - sheet-pan
+  - cast-iron-skillet
+  - blender
+  - food-processor
+  - microwave
+  - kettle
+  - toaster
+  - immersion-blender
+  - scale
+
+# ─── Notes ──────────────────────────────────────────────────────────────────
+#
+# Where do recipes come from?
+# - Library: any *.md file in recipes/<slot>/ with valid frontmatter.
+# - NEW: the planner can invent recipes when the library is thin. After the
+#   run, you decide which NEW recipes to save into the library.
+#
+# How do macro targets affect the plan?
+# - They drive a per-day check, NOT a forced rebalance. If a day misses by
+#   >10%, the plan flags it inline. You decide whether to swap.
+#
+# The `restrictions` list is enforced two ways:
+# 1. Tag-based: recipes whose tags violate any restriction are rejected.
+# 2. Allergen-based: after Migros resolves real products, their German
+#    allergen strings are mapped against your restrictions and conflicts
+#    are flagged inline. (This catches recipes mis-tagged as e.g.
+#    "lactose-free" that actually use a milk-derived product.)
+#
+# See SKILL.md for the full schema, allergen mapping, and run flow.

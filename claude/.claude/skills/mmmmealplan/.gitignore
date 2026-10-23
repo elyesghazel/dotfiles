@@ -1,0 +1,15 @@
+# User config — never commit
+config.yaml
+
+# Generated outputs — keep the directories (.gitkeep), ignore content
+plans/*
+!plans/.gitkeep
+shopping-lists/*
+!shopping-lists/.gitkeep
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

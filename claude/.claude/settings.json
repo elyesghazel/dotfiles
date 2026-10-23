@@ -2,38 +2,32 @@
   "model": "opus",
   "statusLine": {
     "type": "command",
-    "command": "codecash render # codecash-statusline",
+    "command": "\"/home/elyes/.local/share/nvm/v25.8.0/bin/node\" \"/home/elyes/.local/share/nvm/v25.8.0/lib/node_modules/codecash/dist/render.mjs\" || codecash render # codecash-statusline",
     "padding": 0
   },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
-    "i-have-adhd@i-have-adhd": true,
-    "shortcuts-playground@shortcuts-playground": true,
-    "marketing@synced": false
+    "user-research@cookiy-ai": true
   },
   "extraKnownMarketplaces": {
     "claude-hud": {
       "source": {
         "source": "github",
         "repo": "jarrodwatts/claude-hud"
-      }
+      },
+      "autoUpdate": true
     },
-    "i-have-adhd": {
+    "cookiy-ai": {
       "source": {
         "source": "github",
-        "repo": "ayghri/i-have-adhd"
-      }
-    },
-    "shortcuts-playground": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/viticci/shortcuts-playground-plugin.git"
-      }
+        "repo": "cookiy-ai/user-research-skill"
+      },
+      "autoUpdate": true
     }
   },
   "effortLevel": "high",
-  "theme": "dark",
-  "switchModelsOnFlag": true,
-  "remoteControlAtStartup": false,
-  "agentPushNotifEnabled": true
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true,
+  "switchModelsOnFlag": true
 }

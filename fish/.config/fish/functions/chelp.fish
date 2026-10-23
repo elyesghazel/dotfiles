@@ -123,7 +123,7 @@ function _help_keybinds
     echo "  SUPER + E             → File Manager (thunar)"
     echo "  SUPER + B             → Browser (zen-browser)"
     echo "  SUPER + V             → Clipboard History"
-    echo "  ALT + SPACE           → App Launcher (vicinae)"
+    echo "  ALT + SPACE           → App Launcher (zunder)"
     echo "  SUPER + ALT + W       → Random Wallpaper"
     echo ""
     

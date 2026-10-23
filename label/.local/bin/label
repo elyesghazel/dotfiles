@@ -1,0 +1,146 @@
+#!/usr/bin/python3 -I
+"""Print to the Y41BT thermal label printer (TSPL over USB, /dev/usb/lp0).
+
+  label FILE...              image(s) or PDF(s), one label per image / PDF page
+  label -t "TEXT"            big centred text ("\\n" for line breaks)
+  label --preview FILE       render to /tmp/label-preview-N.png instead of printing
+  label --check              exit 0 if the printer is connected and writable
+
+  -s, --size auto|100x150|60x80   roll loaded in the printer (default: auto from the PDF
+                                  page size, 100x150 for images/text)
+  -n COPIES, --landscape (force rotate), --no-dither, --dev PATH
+
+Rolls are WIDTHxHEIGHT in mm as they come out of the printer. Swiss Post WebStamp PDFs
+are landscape pages (150x100 EU, 80x60 CH) and get rotated onto the roll.
+"""
+import argparse, os, subprocess, sys, tempfile
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+DEV = "/dev/usb/lp0"
+DPMM = 8                       # 203 dpi
+FONT = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+ROLLS = {"100x150": (100, 150), "60x80": (60, 80)}
+GAP_MM = 2
+PT_PER_MM = 72 / 25.4
+
+
+def roll_for_page(w_pt, h_pt):
+    """Pick the roll whose size matches a PDF page (either orientation), else None."""
+    w, h = sorted((w_pt / PT_PER_MM, h_pt / PT_PER_MM))
+    for name, (rw, rh) in ROLLS.items():
+        if abs(w - min(rw, rh)) < 3 and abs(h - max(rw, rh)) < 3:
+            return name
+    return None
+
+
+def load_pdf(path):
+    info = subprocess.run(["pdfinfo", path], capture_output=True, text=True, check=True).stdout
+    size = next(l for l in info.splitlines() if l.startswith("Page size:")).split()
+    roll = roll_for_page(float(size[2]), float(size[4]))
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run(["pdftoppm", "-r", str(round(DPMM * 25.4)), "-gray", "-png", path, f"{d}/p"], check=True)
+        return [Image.open(f"{d}/{f}").copy() for f in sorted(os.listdir(d))], roll
+
+
+def text_page(text, dots):
+    img = Image.new("L", dots, 255)
+    draw = ImageDraw.Draw(img)
+    lines = text.replace("\\n", "\n")
+    size = 400
+    while size > 10:
+        font = ImageFont.truetype(FONT, size)
+        l, t, r, b = draw.multiline_textbbox((0, 0), lines, font=font, align="center")
+        if r - l <= dots[0] - 40 and b - t <= dots[1] - 40:
+            break
+        size -= 4
+    draw.multiline_text(((dots[0] - (r - l)) / 2 - l, (dots[1] - (b - t)) / 2 - t),
+                        lines, font=font, fill=0, align="center")
+    return img
+
+
+def fit(img, dots, landscape, dither):
+    img = ImageOps.exif_transpose(img)
+    if img.mode in ("RGBA", "LA", "P"):
+        img = Image.alpha_composite(Image.new("RGBA", img.size, "white"), img.convert("RGBA"))
+    img = img.convert("L")
+    # rotate when the image's orientation disagrees with the roll's
+    if landscape or ((img.width > img.height) != (dots[0] > dots[1])):
+        img = img.rotate(90, expand=True)
+    img = ImageOps.contain(img, dots, Image.LANCZOS)
+    canvas = Image.new("L", dots, 255)
+    canvas.paste(img, ((dots[0] - img.width) // 2, (dots[1] - img.height) // 2))
+    return canvas.convert("1", dither=Image.FLOYDSTEINBERG if dither else Image.NONE)
+
+
+def tspl(page, roll_mm, copies):
+    # TSPL BITMAP: bit 1 = white, 0 = black, which matches PIL mode "1" bytes
+    w, h = page.size
+    head = (f"SIZE {roll_mm[0]} mm,{roll_mm[1]} mm\r\nGAP {GAP_MM} mm,0 mm\r\nDIRECTION 1\r\n"
+            f"CLS\r\nBITMAP 0,0,{w // 8},{h},0,").encode()
+    return head + page.tobytes() + f"\r\nPRINT 1,{copies}\r\n".encode()
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("files", nargs="*")
+    ap.add_argument("-t", "--text")
+    ap.add_argument("-s", "--size", default="auto", choices=["auto", *ROLLS])
+    ap.add_argument("-n", "--copies", type=int, default=1)
+    ap.add_argument("--landscape", action="store_true")
+    ap.add_argument("--no-dither", action="store_true")
+    ap.add_argument("--preview", action="store_true")
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--dev", default=DEV)
+    a = ap.parse_args()
+
+    if a.check:
+        ok = os.path.exists(a.dev) and os.access(a.dev, os.W_OK)
+        print("printer ready" if ok else f"printer not available ({a.dev} missing or not writable)")
+        sys.exit(0 if ok else 1)
+    if not a.files and not a.text:
+        ap.error("give a file or -t TEXT")
+
+    # (image, detected roll or None, dither?) - PDFs are black/white line art, never dither them
+    dither = not a.no_dither
+    raw = []
+    for f in a.files:
+        if f.lower().endswith(".pdf"):
+            imgs, roll = load_pdf(f)
+            raw += [(i, roll, False) for i in imgs]
+        else:
+            raw.append((Image.open(f), None, dither))
+
+    detected = {r for _, r, _ in raw if r}
+    if a.size != "auto":
+        roll = a.size
+        if detected - {roll}:
+            print(f"warning: PDF looks like {'/'.join(sorted(detected))}, printing on {roll}", file=sys.stderr)
+    elif len(detected) > 1:
+        sys.exit(f"files need different rolls ({', '.join(sorted(detected))}) - print them separately")
+    else:
+        roll = detected.pop() if detected else "100x150"
+    roll_mm = ROLLS[roll]
+    dots = (roll_mm[0] * DPMM, roll_mm[1] * DPMM)
+
+    if a.text:
+        raw.insert(0, (text_page(a.text, dots), None, False))
+    pages = [fit(img, dots, a.landscape, d) for img, _, d in raw]
+
+    if a.preview:
+        for i, p in enumerate(pages, 1):
+            p.save(f"/tmp/label-preview-{i}.png")
+        print(f"{len(pages)} label(s) on {roll} -> /tmp/label-preview-1..{len(pages)}.png")
+        return
+    try:
+        with open(a.dev, "wb") as out:
+            for p in pages:
+                out.write(tspl(p, roll_mm, a.copies))
+    except FileNotFoundError:
+        sys.exit(f"printer not connected ({a.dev} missing) - is it on and plugged in?")
+    except PermissionError:
+        sys.exit(f"no access to {a.dev}: see ~/dotfiles/label/README.md (udev rule)")
+    print(f"printed {len(pages)} label(s) x{a.copies} on {roll}")
+
+
+if __name__ == "__main__":
+    main()

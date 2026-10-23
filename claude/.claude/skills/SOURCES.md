@@ -12,6 +12,7 @@ update a vendored skill, re-fetch the path below and diff it in.
 | `content-strategy` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | `skills/content-strategy/` | 2026-06-11 |
 | `mega-goal-prompt` | [agentara/skills](https://github.com/agentara/skills) | `skills/productivity/mega-goal-prompt/` | 2026-06-11 |
 | `find-skills` | [vercel-labs/skills](https://github.com/vercel-labs/skills) | `skills/find-skills/` | 2026-06-11 |
+| `mmmmealplan` | [philippdubach/mmmmealplan](https://github.com/philippdubach/mmmmealplan) | repo root (minus `install.sh`) | 2026-10-14 |
 
 Upstream folder hashes at vendor time:
 
@@ -19,6 +20,7 @@ Upstream folder hashes at vendor time:
 content-strategy  8a2387b41d046b1b5a72a346103120b3c28e8bf5
 mega-goal-prompt  88cbe8433a97a1c3e0e8225ed9dc0532bc3926e5
 find-skills       3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d
+mmmmealplan       64ae9a6a4d650e14971de3ff7277c77c5c9a3efc  (commit)
 ```
 
 ## Shared
@@ -34,7 +36,7 @@ first.
 ## Local
 
 `drawio-skill`, `ui-ux-pro-max`, `graphify`, `markitdown`, `excalidraw-boards`, `video-cut`,
-`apple-reminders` —
+`apple-reminders`, `lidl` —
 maintained in this repo. `excalidraw-boards` and `markitdown` depend on the MCP servers registered by
 `../bin/mcp-bootstrap.fish`.
 
@@ -46,3 +48,8 @@ versions of the ones in that project.
 `apple-reminders` drives the `remind` and `icloud` fish functions, which need pyicloud
 installed as a uv tool (`install.sh` does it) and a one-time interactive
 `icloud auth login`.
+
+`lidl` (written 2026-10-14) searches the lidl.ch storefront search API (`/q/api/search`), which
+answers 401 unless the request carries browser `Sec-Fetch-*` headers. It indexes ~700 items:
+offers plus a slice of the regular range, not the full in-store assortment. Cache lives in
+`~/.cache/lidl-ch/`, outside this repo.

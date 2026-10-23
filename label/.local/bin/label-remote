@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Forced command for the VPS's print key in ~/.ssh/authorized_keys. The key can do nothing
+# else: no shell, no forwarding. Reads $SSH_ORIGINAL_COMMAND:
+#   check                 exit 0 if the printer is connected and writable
+#   print <auto|SIZE>     PDF on stdin -> label --size SIZE
+set -euo pipefail
+export PATH="$HOME/.local/bin:/usr/bin:/bin"
+
+read -r cmd size extra <<<"${SSH_ORIGINAL_COMMAND:-}"
+[[ -z ${extra:-} ]] || { echo "unexpected arguments" >&2; exit 2; }
+
+case $cmd in
+  check)
+    exec label --check ;;
+  print)
+    [[ ${size:-auto} =~ ^(auto|100x150|60x80)$ ]] || { echo "bad size '$size'" >&2; exit 2; }
+    tmp=$(mktemp --suffix=.pdf); trap 'rm -f "$tmp"' EXIT
+    head -c 20000000 >"$tmp"
+    [[ $(head -c 5 "$tmp") == %PDF- ]] || { echo "stdin is not a PDF" >&2; exit 2; }
+    label --size "${size:-auto}" "$tmp" ;;
+  *)
+    echo "allowed: check | print <auto|100x150|60x80>" >&2; exit 2 ;;
+esac
