@@ -1,0 +1,6 @@
+[Unit]
+Description=Share ~/.claude config with the Claude Isaac profile
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/fish %h/.claude/bin/claude-profile-share.fish
