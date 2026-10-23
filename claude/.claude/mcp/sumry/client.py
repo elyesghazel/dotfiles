@@ -15,7 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_BASE_URL = "https://sumry-api.elyesghazel.ch"
+DEFAULT_BASE_URL = "https://sumry.elyesghazel.ch"
 TIMEOUT_SECONDS = 20
 
 # Cloudflare fronts the API and bans urllib's default signature outright

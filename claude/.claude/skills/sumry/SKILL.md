@@ -6,7 +6,7 @@ description: Read and write the self-hosted Sumry finances at sumry.elyesghazel.
 # Sumry
 
 Elyes' self-hosted finance app. The `sumry` MCP server talks to the Spring backend at
-`sumry-api.elyesghazel.ch`; the web UI lives at `sumry.elyesghazel.ch`. Everything is CHF.
+`sumry.elyesghazel.ch/api`, next to the web UI at `sumry.elyesghazel.ch`. Everything is CHF.
 
 ## Tools
 
@@ -82,7 +82,7 @@ income, and `Auto & Töffli` swings hard when there is vehicle work.
 Credentials come from `~/.claude/secrets.fish` (gitignored):
 
 ```fish
-set -gx SUMRY_API_URL  "https://sumry-api.elyesghazel.ch"
+set -gx SUMRY_API_URL  "https://sumry.elyesghazel.ch"
 set -gx SUMRY_EMAIL    "..."
 set -gx SUMRY_PASSWORD "..."
 ```
