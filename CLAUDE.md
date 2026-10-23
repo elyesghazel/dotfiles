@@ -116,7 +116,7 @@ Custom functions live in `fish/.config/fish/functions/`. Notable ones:
 
 | Function | Purpose |
 |----------|---------|
-| `dotsync [subject]` | Commit + push dotfiles; validates the Conventional Commits subject |
+| `dotsync [subject]` | Commit, rebase onto origin, push anything unpushed; validates the Conventional Commits subject |
 | `hconf [module]` | Quick-edit a hyprland conf module in nano |
 | `npr` | Interactive new project (Swisscom / business / education paths) |
 | `npu` | Create and push a new public GitHub repo |
