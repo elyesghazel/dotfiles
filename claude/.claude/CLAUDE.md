@@ -118,3 +118,13 @@ task**, or ask **what's on my reminders** or **what I have to do** — invoke th
 - Unsure, e.g. "gym tomorrow 7am"? Default to a calendar event if it blocks time and to a
   reminder if it's a nudge. Don't ask unless both readings would be wrong in a way that
   matters.
+
+# email
+
+- **email** (`~/.claude/skills/email/SKILL.md`) - read and send my mail (elyes@elyesghazel.ch,
+  info@slideplate.ch) through `mailctl`. Trigger: `/email`
+
+Whenever I ask to **check / search / read mail**, need an **emailed 2FA code or login link**,
+or want to **write, reply to or send an email** (incl. outreach to companies) - invoke the
+Skill tool with `skill: "email"` before answering. **Never send without my OK on the exact
+draft.**
