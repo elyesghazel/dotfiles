@@ -12,7 +12,7 @@ file.
 
 | account | address | use for |
 |---|---|---|
-| `elyes` (default) | elyes@elyesghazel.ch | personal; every catch-all alias `*@elyesghazel.ch` lands here (`claude@`, `paypal@`, `google@` ...) |
+| `elyes` (default) | elyes@elyesghazel.ch | personal; per-service aliases land here (`claude@`, `reddit@`, `bambu@` ...); no wildcard - add new ones with `docker exec mailu-admin-1 flask mailu alias <local> elyesghazel.ch elyes@elyesghazel.ch` or mail bounces |
 | `slideplate` | info@slideplate.ch, "Elyes \| SlidePlate" | anything SlidePlate: customers, suppliers, Pulverbeschichter, partners |
 
 ## Reading
