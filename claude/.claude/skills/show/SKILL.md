@@ -16,9 +16,10 @@ show clip.mp4 --ttl 2d                                                # any file
 show --port 5173 --name sumry-staging --title "Sumry staging"         # proxy a running server
 show ls          # what is live
 show rm <slug>   # take it down
+show ttl <slug> 30d   # change the expiry of a live site (or `never`)
 ```
 
-It prints the URL and pushes a ntfy note with a tap-to-open link to topic `agents`.
+It prints the URL. No ntfy note by default: put the link in your reply instead.
 lab.elyesghazel.tech lists everything that is live.
 
 ## Rules
@@ -27,20 +28,28 @@ lab.elyesghazel.tech lists everything that is live.
   Use `--public` only when the page is meant for other people (a demo for a client, a link to
   share) and contains nothing personal. Finances, health, vault notes, credentials, server
   internals: never `--public`.
-- **Expiry:** default `--ttl 7d`; `30m`, `12h`, `2w`, `never` also work. An hourly cron runs
-  `show gc`. Use `never` only when he asked for something permanent, and even then the domain
-  is a 1-year GitHub Student Pack domain: anything meant to last belongs on `.ch`.
+- **Expiry: pick it yourself, every time.** Don't just take the default; set `--ttl` by what it is:
+  | What | `--ttl` |
+  |---|---|
+  | quick check, screenshot-like preview, dev server proxy | `1d` (or `12h`) |
+  | mockup, report, research he'll come back to this week | `7d` (default) |
+  | reference material, a plan or overview he'll use for a while | `30d` |
+  | something he explicitly wants to keep | `never` |
+  Change it later with `show ttl <slug> <ttl>` (e.g. he says "keep that" → `show ttl <slug> never`).
+  An hourly cron runs `show gc`. The domain is a 1-year GitHub Student Pack domain: anything
+  meant to last for years belongs on `.ch`. Permanent tools (like the ops dashboard at
+  `ops.elyesghazel.tech`) are real services in `/opt/docker`, not `show` sites.
 - **Slugs** are lowercase `a-z0-9-`. Without `--name` it derives one from the file or folder
   name and adds a suffix on collision. Re-running with the same `--name` replaces the site.
-  Reserved: `lab`, `auth`, `www`, `id`, `api`, `mail`.
+  Reserved: `lab`, `auth`, `www`, `id`, `api`, `mail`, `ops`.
 - **`--port` servers must bind `172.22.0.1`** (the traefik_proxy gateway), e.g.
   `vite --host 172.22.0.1 --port 5173`. Never bind `0.0.0.0`: the VPS has no inbound
   firewall, so that would expose the server on the public IP, bypassing the login.
   `show rm` the proxy when the server stops.
 - Pages are self-contained static files. Relative asset paths work. There is no server-side
   code; for anything dynamic use `--port`.
-- `--quiet` skips the ntfy note, e.g. when republishing the same page several times in a row.
-  Send the note once, at the end.
+- `--notify` sends a ntfy note with a tap-to-open link to topic `agents`. Only use it when he
+  explicitly asks for a push, or for unattended runs (cron, routines) where nobody reads the reply.
 - Inside T3 Code, `html_render` is still the way to show something *in the chat*. `show` is for
   a link he opens elsewhere, keeps for a few days, or looks at on his phone.
 
