@@ -294,7 +294,18 @@ KEYWORD_RE = re.compile(
     r"(?i)(?:code|pin|otp|passcode|verification|verify|bestätigung\w*|sicherheitscode|einmal\w*|codice|token)"
     r"[^\n\d]{0,60}?\b(\d{3}[ -]\d{3}|[A-Z0-9]{4,10})\b")
 LINE_RE = re.compile(r"(?m)^\s*(\d{3}[ -]?\d{3}|[A-Z0-9]{4,8})\s*$")
-LINK_RE = re.compile(r"https?://[^\s<>\"')]*(?:verify|confirm|magic|login|signin|sign-in|token|auth)[^\s<>\"')]*", re.I)
+URL_RE = re.compile(r"https?://[^\s<>\"')]+")
+LINK_KW = re.compile(r"verify|confirm|magic|login|signin|sign-in|token|auth", re.I)
+
+
+def find_link(text):
+    """first URL whose path (not query - tracking params say 'magic_link' too) looks like a login link"""
+    from urllib.parse import urlsplit
+    for u in URL_RE.findall(text or ""):
+        u = u.rstrip(".,;")
+        if LINK_KW.search(urlsplit(u).path):
+            return u
+    return None
 
 
 def _ok(c):
@@ -331,13 +342,13 @@ def cmd_code(cfg, args):
             msg = get_message(m, r["folder"], r["uid"])
             text = body_text(msg, both=True)
             code = find_code(r["subject"], text)
-            link = LINK_RE.search(text)
+            link = find_link(text)
             if code or link:
-                print(code or link[0])
+                print(code or link)
                 print(f"  from {r['from']}  ·  {r['subject']}  ·  "
                       f"{r['date'].astimezone().strftime('%H:%M')}  ·  {r['folder']}:{r['uid']}", file=sys.stderr)
                 if code and link:
-                    print(f"  link: {link[0]}", file=sys.stderr)
+                    print(f"  link: {link}", file=sys.stderr)
                 m.logout()
                 return
         m.logout()
