@@ -50,7 +50,7 @@ command="/home/elyes/.local/bin/label-remote",restrict ssh-ed25519 ... slideplat
 ```
 
 That key can only run `check` or `print <auto|100x150|60x80>` with a PDF on stdin - no shell,
-no forwarding. The pipeline around it lives in the vault: `00_System/scripts/slideplate-ship/README.md`.
+no forwarding. The pipeline around it lives on the VPS: `~/agents/slideplate-tools/slideplate-ship/README.md` (Forgejo `elyes/slideplate-tools`).
 
 ## Protocol notes
 

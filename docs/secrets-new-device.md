@@ -147,9 +147,9 @@ stat -c '%a %s %n' <path>      # expect 600 and size > 0
 ```
 Then smoke-test the tools that exist on this machine - only commands that do not spend money
 or send anything:
-- `python3 ~/projects/elyes-vault/00_System/scripts/slideplate-send/slideplate-send.py check`
+- `python3 ~/agents/slideplate-tools/slideplate-send/slideplate-send.py check` (clone Forgejo `elyes/slideplate-tools` to `~/agents/slideplate-tools`; on the VPS just `slideplate-send check`)
   (logs in to SMTP/IMAP, sends nothing)
-- `node ~/projects/elyes-vault/00_System/scripts/webstamp/webstamp.mjs config` (prints config
+- `~/agents/slideplate-tools/webstamp/webstamp config` (prints config
   status, needs `npm install` in that folder first - see its README)
 - Claude MCP servers: `fish ~/.claude/bin/mcp-bootstrap.fish` (needs `~/.claude/secrets.fish`
   from the `claude-mcp` item)
