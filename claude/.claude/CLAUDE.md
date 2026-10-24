@@ -85,6 +85,16 @@ render, or a dev server — or I say "show me", "send me a link", "let me see it
 on my phone", invoke the Skill tool with `skill: "show"` and publish it instead of describing it
 or pasting screenshots. Private unless I ask for a public link.
 
+# short
+
+- **short** (`~/.claude/skills/short/SKILL.md`) - durable, repointable short links on
+  `s.elyesghazel.ch` (Shlink) via the `short` CLI on the VPS. Trigger: `/short`
+
+Whenever a link is **meant for other people** — something to share, post, put in a bio or a
+QR code — or has to outlive its target (anything on `.tech`, which expires), invoke the Skill
+tool with `skill: "short"` and hand out the `s.elyesghazel.ch` link. Not for private previews;
+those stay on `show`.
+
 # sumry
 
 - **sumry** (`~/.claude/skills/sumry/SKILL.md`) - my self-hosted finances at
