@@ -24,6 +24,10 @@ install -Dm644 "$DIR/autoupdate.service" /etc/systemd/system/autoupdate.service
 install -Dm644 "$DIR/autoupdate.timer"   /etc/systemd/system/autoupdate.timer
 install -Dm755 "$DIR/autoupdate-notify"         /usr/local/bin/autoupdate-notify
 install -Dm644 "$DIR/autoupdate-notify.service" /etc/systemd/system/autoupdate-notify.service
+# Root-owned so the build user can't change its own build options.
+install -dm755 -o aurbuilder -g aurbuilder /var/lib/aurbuilder/.config
+install -dm755 /var/lib/aurbuilder/.config/pacman
+install -Dm644 "$DIR/makepkg.conf" /var/lib/aurbuilder/.config/pacman/makepkg.conf
 
 # Failure alerts use the write-only ntfy user `laptop` on topic `server` (the
 # `clip` creds can only write to `clip`). Copied into a root-only file because
