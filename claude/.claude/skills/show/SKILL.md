@@ -43,7 +43,7 @@ lab.elyesghazel.tech lists everything that is live.
   He can also delete a site or change its expiry himself from the buttons on lab.elyesghazel.tech.
   A cron runs `show gc` every 5 minutes. The domain is a 1-year GitHub Student Pack domain: anything
   meant to last for years belongs on `.ch`. Permanent tools (like the ops dashboard at
-  `ops.elyesghazel.tech`) are real services in `/opt/docker`, not `show` sites.
+  `ops.elyesghazel.ch`) are real services in `/opt/docker`, not `show` sites.
 - **Paths: always pass `--name` and group by what it belongs to.** Up to 4 segments of
   lowercase `a-z0-9-`, e.g. `schule/rega/lernvideo`, `slideplate/text-plates`,
   `zunder/logo`, `sumry/redesign`. Reuse an existing folder when the thing relates to one
