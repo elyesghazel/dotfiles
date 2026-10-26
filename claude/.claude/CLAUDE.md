@@ -77,7 +77,7 @@ This is the default for anything visual, and it wins over `drawio-skill`. Only r
 # show
 
 - **show** (`~/.claude/skills/show/SKILL.md`) - publish pages, reports, previews, videos or a
-  running dev server to `<slug>.elyesghazel.tech` (hub: `lab.elyesghazel.tech`), behind my
+  running dev server to `lab.elyesghazel.tech/<group>/<name>/` (hub: `lab.elyesghazel.tech`), behind my
   passkey login by default. Trigger: `/show`
 
 Whenever you want to **show me something visual** — a page, report, mockup, UI preview, chart,
