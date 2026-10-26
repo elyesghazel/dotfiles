@@ -28,6 +28,9 @@ lab.elyesghazel.tech lists everything that is live.
   Use `--public` only when the page is meant for other people (a demo for a client, a link to
   share) and contains nothing personal. Finances, health, vault notes, credentials, server
   internals: never `--public`.
+- **Sharing with specific people:** `--gate` instead of `--public` puts the site behind Elyes
+  Sign-in (GitHub login, login.elyesghazel.tech); then `gate grant <github-login> <slug>`.
+  Only when Elyes names who should see it.
 - **Expiry: pick it yourself, every time.** Don't just take the default; set `--ttl` by what it is:
   | What | `--ttl` |
   |---|---|
