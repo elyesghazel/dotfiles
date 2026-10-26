@@ -25,20 +25,21 @@ install -Dm644 "$DIR/autoupdate.timer"   /etc/systemd/system/autoupdate.timer
 install -Dm755 "$DIR/autoupdate-notify"         /usr/local/bin/autoupdate-notify
 install -Dm644 "$DIR/autoupdate-notify.service" /etc/systemd/system/autoupdate-notify.service
 
-# Failure alerts reuse the ntfy creds of the `clip` fish function. Copied into a
-# root-only file because the service can't read (and shouldn't depend on) ~/.
+# Failure alerts use the write-only ntfy user `laptop` on topic `server` (the
+# `clip` creds can only write to `clip`). Copied into a root-only file because
+# the service can't read (and shouldn't depend on) ~/.
 ADMIN="${SUDO_USER:-$(id -nu "${PKEXEC_UID:-0}")}"
 SECRETS="$(getent passwd "$ADMIN" | cut -d: -f6)/.claude/secrets.fish"
 install -dm700 /etc/autoupdate
 if [ -f "$SECRETS" ] && runuser -u "$ADMIN" -- fish -c \
-        "source $SECRETS; set -q NTFY_URL NTFY_TOPIC NTFY_TOKEN" 2>/dev/null; then
+        "source $SECRETS; set -q NTFY_URL AUTOUPDATE_NTFY_TOPIC AUTOUPDATE_NTFY_TOKEN" 2>/dev/null; then
     ( umask 077
       runuser -u "$ADMIN" -- fish -c "source $SECRETS
-          printf 'NTFY_URL=%s\nNTFY_TOPIC=%s\nNTFY_TOKEN=%s\n' \$NTFY_URL \$NTFY_TOPIC \$NTFY_TOKEN" \
+          printf 'NTFY_URL=%s\nNTFY_TOPIC=%s\nNTFY_TOKEN=%s\n' \$NTFY_URL \$AUTOUPDATE_NTFY_TOPIC \$AUTOUPDATE_NTFY_TOKEN" \
           > /etc/autoupdate/ntfy.env )
     echo "ntfy failure alerts: on (topic from $SECRETS)"
 else
-    echo "ntfy failure alerts: off - set NTFY_URL/NTFY_TOPIC/NTFY_TOKEN in $SECRETS and re-run"
+    echo "ntfy failure alerts: off - set NTFY_URL/AUTOUPDATE_NTFY_TOPIC/AUTOUPDATE_NTFY_TOKEN in $SECRETS and re-run"
 fi
 
 systemctl daemon-reload
