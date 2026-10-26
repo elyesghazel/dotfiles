@@ -36,7 +36,8 @@ lab.elyesghazel.tech lists everything that is live.
   | reference material, a plan or overview he'll use for a while | `30d` |
   | something he explicitly wants to keep | `never` |
   Change it later with `show ttl <slug> <ttl>` (e.g. he says "keep that" → `show ttl <slug> never`).
-  An hourly cron runs `show gc`. The domain is a 1-year GitHub Student Pack domain: anything
+  He can also delete a site or change its expiry himself from the buttons on lab.elyesghazel.tech.
+  A cron runs `show gc` every 5 minutes. The domain is a 1-year GitHub Student Pack domain: anything
   meant to last for years belongs on `.ch`. Permanent tools (like the ops dashboard at
   `ops.elyesghazel.tech`) are real services in `/opt/docker`, not `show` sites.
 - **Slugs** are lowercase `a-z0-9-`. Without `--name` it derives one from the file or folder
@@ -61,5 +62,7 @@ lab.elyesghazel.tech lists everything that is live.
 - Public sites and `--port` proxies get their own `lab-<slug>.yml` route file next to it.
   Traefik watches that directory, so there is no restart.
 - Login: `auth.elyesghazel.tech` (tinyauth) → `id.elyesghazel.ch` (Pocket ID, passkeys).
+- The hub buttons post to `web-lab-api` (`/opt/docker/lab/api/server.py`), which imports
+  `bin/show`; manifest writes are serialised with a flock on `/opt/docker/lab/.lock`.
 - State lives in `/opt/docker/lab/manifest.json`, sites in `/opt/docker/lab/sites/<slug>`.
   ntfy settings are in `~/.config/show/config.env`.
