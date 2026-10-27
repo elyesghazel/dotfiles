@@ -7,10 +7,12 @@
   mailctl code   [-a ACC] [--since 15m] [--from X] [--wait 120]
   mailctl folders [-a ACC]
   mailctl send   -a ACC --to X [--cc X] [--bcc X] --subject S (--body TEXT | --body-file F)
-                 [--attach F ...] [--reply UID [-f FOLDER]] [--draft] [--yes]
+                 [--attach F ...] [--reply UID [-f FOLDER]] [--sig de|en|none] [--draft] [--yes]
 
 send without --yes only prints a preview. --draft saves to Drafts instead of sending.
 Config: ~/.config/mailctl/accounts.env (Mailu app tokens). Sent log: ~/.local/state/mailctl/sent.log
+Signatures: ~/.config/mailctl/signatures/<account>/<lang>.txt + .html (default de); an account
+without that folder sends plain text as before. The logo goes inline, not as a remote image.
 """
 import argparse, email, email.policy, html, imaplib, mimetypes, os, re, smtplib, ssl, sys, time
 from datetime import datetime, timedelta, timezone
@@ -21,6 +23,8 @@ from pathlib import Path
 
 CONFIG = Path.home() / ".config/mailctl/accounts.env"
 SENT_LOG = Path.home() / ".local/state/mailctl/sent.log"
+SIGNATURES = Path.home() / ".config/mailctl/signatures"
+SIG_LOGO_URL = "https://elyesghazel.ch/email-mark.png"
 
 
 def load_config():
@@ -380,13 +384,43 @@ def build_message(acc, args, m=None):
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=acc["user"].split("@")[1])
     body = args.body if args.body is not None else Path(args.body_file).read_text() if args.body_file else ""
-    msg.set_content(body)
+    sig = signature(acc, args.sig)
+    if sig:
+        txt, sig_html, logo = sig
+        msg.set_content(body.rstrip() + "\n\n-- \n" + txt)
+        paras = "".join(
+            f'<p style="margin:0 0 1em">{linkify(html.escape(p)).replace(chr(10), "<br>")}</p>'
+            for p in re.split(r"\n\s*\n", body.strip()))
+        cid = make_msgid(domain=acc["user"].split("@")[1])
+        if logo:
+            sig_html = sig_html.replace(SIG_LOGO_URL, f"cid:{cid[1:-1]}")
+        msg.add_alternative(
+            '<!doctype html><html><body style="font-family:-apple-system,\'Segoe UI\',Helvetica,Arial,sans-serif;'
+            f'font-size:15px;line-height:1.5;color:#222">{paras}<br>{sig_html}</body></html>', subtype="html")
+        if logo:
+            msg.get_payload()[1].add_related(logo.read_bytes(), "image", "png", cid=cid, filename=logo.name)
+    else:
+        msg.set_content(body)
     for f in args.attach or []:
         p = Path(f)
         ct, _ = mimetypes.guess_type(p.name)
         mt, st = (ct or "application/octet-stream").split("/", 1)
         msg.add_attachment(p.read_bytes(), maintype=mt, subtype=st, filename=p.name)
     return msg
+
+
+def signature(acc, lang):
+    """(plain text, html, logo path or None) for the account, or None if it has no signature."""
+    d = SIGNATURES / acc["name"]
+    if lang == "none" or not (d / f"{lang}.txt").exists():
+        return None
+    h = d / f"{lang}.html"
+    logo = d / "email-mark.png"
+    return (d / f"{lang}.txt").read_text(), h.read_text() if h.exists() else "", logo if logo.exists() else None
+
+
+def linkify(s):
+    return re.sub(r"(https?://[^\s<]+[^\s<.,;:!?)])", r'<a href="\1">\1</a>', s)
 
 
 def cmd_send(cfg, args):
@@ -421,6 +455,8 @@ def cmd_send(cfg, args):
             print(f"Attach: {f} ({Path(f).stat().st_size // 1024} KB)")
         print()
         print(msg.get_body(("plain",)).get_content())
+        if msg.get_body(("html",)):
+            print("(+ HTML version with the signature logo)")
         return
 
     ctx = ssl.create_default_context()
@@ -485,6 +521,7 @@ def main():
     p.add_argument("--body-file")
     p.add_argument("--attach", action="append")
     p.add_argument("--reply", help="UID or FOLDER:UID to reply to (threads it, fills Re: subject)")
+    p.add_argument("--sig", default="de", help="signature language: de, en or none (default de)")
     p.add_argument("--draft", action="store_true", help="save to Drafts instead of sending")
     p.add_argument("--yes", action="store_true", help="actually send (only after Elyes approved the preview)")
 

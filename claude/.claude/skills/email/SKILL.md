@@ -68,8 +68,14 @@ mailctl send -a slideplate --to x@y.ch --subject S --body-file f --draft
 
 - Sent mail is DKIM-signed by Mailu, copied to the account's Sent folder and logged in
   `~/.local/state/mailctl/sent.log`.
-- Plain text only. Write bodies to a file in `/tmp` (heredoc) rather than escaping long
-  `--body` strings.
+- Write the body as plain text, to a file in `/tmp` (heredoc) rather than escaping long
+  `--body` strings. Keep ending it with the greeting and his name ("Freundliche Grüsse /
+  Elyes Ghazel"). mailctl adds the signature below it.
+- **Signature (elyes@ only):** mailctl appends `~/.config/mailctl/signatures/elyes/<lang>`,
+  a plain-text version plus an HTML version with the `eg.` logo inline. The default is German
+  (`--sig de`); use `--sig en` for English mail and `--sig none` for personal or short
+  replies. info@slideplate.ch has no signature folder, so its mail stays plain text. The
+  source is `design/logo/email/` in the portfolio repo (`build.py`).
 - One `send` per recipient for outreach - never put several companies in To/Cc. Use `--bcc`
   only if he asks.
 - Outreach batches: draft them all, show them as a numbered list, let him approve all or pick
