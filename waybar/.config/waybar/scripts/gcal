@@ -659,15 +659,16 @@ def cmd_toggle(big=False):
         return
     mon = next(m for m in json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
                if m["focused"])
+    # the move rule is relative to the monitor, so no mon["x"]/mon["y"] offset
     mw, mh = mon["width"] / mon["scale"], mon["height"] / mon["scale"]
     if big:
         w, h = int(mw * 0.62), int(mh * 0.72)
-        x, y = mon["x"] + int((mw - w) / 2), mon["y"] + int((mh - h) / 2)
+        x, y = int((mw - w) / 2), int((mh - h) / 2)
         extra = "-o font_size=13 -o window_padding_width=28 -o background_opacity=0.97"
         rules_extra = ", dim_around = true, stay_focused = true"
     else:
         w, h = POPUP_W, POPUP_H
-        x, y = mon["x"] + int((mw - w) / 2), mon["y"] + 52  # bar height + top margin + gap
+        x, y = int((mw - w) / 2), 52  # bar height + top margin + gap
         extra = "-o window_padding_width=14 -o background_opacity=0.94"
         rules_extra = ""
     cmd = (f"kitty --class {cls} -o confirm_os_window_close=0 -o background=#0e0e14 {extra} "
