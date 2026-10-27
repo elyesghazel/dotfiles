@@ -395,12 +395,27 @@ def month_grid(today, busy):
     return [(l, None) for l in lines]
 
 
-def overview(evs, now, width):
-    """Date, now/next."""
+def overview(evs, now, width, stacked=False):
+    """Date, now/next. `stacked` puts titles on their own line, for a narrow column."""
     lines = ["", row(width, f"{rgb(FG, True)}{now:%A, %d %B}{R}", f"{rgb(MUTED)}{now:%H:%M}{R}"), ""]
     current, upcoming = now_next(evs, now)
-    title_w = width - 22
     out = [(l, None) for l in lines]
+    if stacked:
+        if current:
+            out += [(row(width, f"{rgb(GREEN, True)}NOW{R}", f"{rgb(MUTED)}ends in {until(current['end'] - now)}{R}"), current),
+                    (f"  {rgb(FG, True)}{short(current['title'], width)}{R}", current),
+                    (f"  {progress(current, now, width)}", current), ("", None)]
+        if upcoming:
+            soon = upcoming["start"] - now < dt.timedelta(hours=1)
+            when = f"{upcoming['start']:%a %H:%M}" + (f" · {upcoming['where']}" if upcoming["where"] else "")
+            out += [(row(width, f"{rgb(ACCENT, True)}NEXT{R}",
+                         f"{rgb(YELLOW if soon else MUTED)}in {until(upcoming['start'] - now)}{R}"), upcoming),
+                    (f"  {rgb(FG)}{short(upcoming['title'], width)}{R}", upcoming),
+                    (f"  {rgb(FAINT)}{short(when, width)}{R}", upcoming)]
+        if not (current or upcoming):
+            out.append((f"  {rgb(MUTED)}Nothing coming up.{R}", None))
+        return out
+    title_w = width - 22
     if current:
         out.append((row(width, f"{rgb(GREEN, True)}NOW{R}   {rgb(FG, True)}{short(current['title'], title_w)}{R}",
                         f"{rgb(MUTED)}ends in {until(current['end'] - now)}{R}"), current))
@@ -416,19 +431,68 @@ def overview(evs, now, width):
     return out
 
 
+BUCKETS = [("Overdue", RED), ("Today", YELLOW), ("Tomorrow", ACCENT),
+           ("This week", ACCENT), ("Later", MUTED), ("No date", FAINT)]
+
+
+def bucket(rem, now):
+    due = rem["due"]
+    if not due:
+        return "No date"
+    d, today = due.date(), now.date()
+    if d < today or (not rem["all_day"] and due < now):
+        return "Overdue"
+    if d == today:
+        return "Today"
+    if d == today + dt.timedelta(days=1):
+        return "Tomorrow"
+    return "This week" if d < today + dt.timedelta(days=7) else "Later"
+
+
 def reminder_lines(rems, now, width, status=""):
-    out = [("", None), (heading("Reminders", width, ACCENT), None)]
+    """Reminders grouped by when they are due."""
+    out = [("", None), (heading(f"Tasks · {len(rems)} open", width, ACCENT), None)]
     if status:
         out.append((f"  {rgb(FAINT)}{status}{R}", None))
+    groups = {}
     for rem in rems:
-        due, color = due_label(rem, now)
-        flag = f"{rgb(RED, True)}!{R} " if rem["priority"] == 1 else ""
-        link = f" {rgb(ACCENT)}↗{R}" if rem["link"] else ""
-        room = width - len(due) - 9 - (2 if flag else 0)
-        out.append((row(width, f"{rgb(MUTED)}○{R}  {flag}{rgb(FG)}{short(rem['title'], room)}{R}{link}",
-                        f"{rgb(color)}{due}{R}"), rem))
+        groups.setdefault(bucket(rem, now), []).append(rem)
+    for name, color in BUCKETS:
+        if name not in groups:
+            continue
+        out += [("", None), (f"  {rgb(color, True)}{name}{R} {rgb(FAINT)}{len(groups[name])}{R}", None)]
+        for rem in groups[name]:
+            due, due_color = due_label(rem, now)
+            if name in ("Today", "Tomorrow"):
+                due = "" if rem["all_day"] else f"{rem['due']:%H:%M}"
+            flag = f"{rgb(RED, True)}!{R} " if rem["priority"] == 1 else ""
+            link = f" {rgb(ACCENT)}↗{R}" if rem["link"] else ""
+            room = width - len(due) - 5 - (2 if flag else 0) - (2 if link else 0)
+            out.append((row(width, f"{rgb(MUTED)}○{R}  {flag}{rgb(FG)}{short(rem['title'], room)}{R}{link}",
+                            f"{rgb(due_color)}{due}{R}"), rem))
     if not rems and not status:
         out.append((f"  {rgb(MUTED)}All done.{R}", None))
+    return out
+
+
+def stats(evs, rems, now, width):
+    """Counts at a glance."""
+    counts = {}
+    for rem in rems:
+        counts[bucket(rem, now)] = counts.get(bucket(rem, now), 0) + 1
+    week_end = now.date() + dt.timedelta(days=7)
+    today_evs = sum(1 for e in evs if e["start"].date() == now.date() and (e["all_day"] or e["end"] > now))
+    week_evs = sum(1 for e in evs if now.date() <= e["start"].date() < week_end and (e["all_day"] or e["end"] > now))
+    lines = [
+        ("Overdue tasks", counts.get("Overdue", 0), RED),
+        ("Due today", counts.get("Today", 0), YELLOW),
+        ("Due this week", sum(counts.get(b, 0) for b in ("Today", "Tomorrow", "This week")), ACCENT),
+        ("Events left today", today_evs, GREEN),
+        ("Events next 7 days", week_evs, GREEN),
+    ]
+    out = [("", None), (heading("At a glance", width, ACCENT), None), ("", None)]
+    for label, n, color in lines:
+        out.append((row(width, f"{rgb(MUTED)}{label}{R}", f"{rgb(color if n else FAINT, True)}{n}{R}"), None))
     return out
 
 
@@ -459,28 +523,63 @@ def agenda(evs, now, width, wide=False):
 
 
 def layout(state, cols):
-    """→ list of rows, each [(text, item, x_from, x_to), ...] (one cell, or two for the overlay)."""
+    """→ columns, each (lines, x_from, x_to): one for the popup, two or three for the overlay."""
     now = dt.datetime.now().astimezone()
     evs, rems = state["events"], state["reminders"]
-    head = [("", None), (f"  {rgb(RED)}{state['error']}{R}", None)] if state["error"] else []
+    busy = {e["start"].date() for e in evs}
+    head = [("", None), (f"  {rgb(RED)}{short(state['error'], cols - 4)}{R}", None)] if state["error"] else []
     if cols < 100:
         w = cols - 4
         lines = (head + overview(evs, now, w)
                  + reminder_lines(rems, now, w, state["rem_status"])
-                 + [("", None)] + month_grid(now.date(), {e["start"].date() for e in evs})
+                 + [("", None)] + month_grid(now.date(), busy)
                  + agenda(evs, now, w))
-        return [[(t, it, 0, cols)] for t, it in lines]
+        return [(lines, 0, cols)]
 
-    left_w = 50
-    left = (head + overview(evs, now, left_w - 4)
-            + reminder_lines(rems, now, left_w - 4, state["rem_status"])
-            + [("", None), ("", None)] + month_grid(now.date(), {e["start"].date() for e in evs}))
-    right = agenda(evs, now, cols - left_w - 6, wide=True)
-    rows = []
-    for i in range(max(len(left), len(right))):
-        l = left[i] if i < len(left) else ("", None)
-        r = right[i] if i < len(right) else ("", None)
-        rows.append([(l[0], l[1], 0, left_w), (f"{rgb(FG_GHOST)}│{R}" + r[0], r[1], left_w, cols)])
+    if cols < 140:
+        left_w = 50
+        left = (head + overview(evs, now, left_w - 4)
+                + reminder_lines(rems, now, left_w - 4, state["rem_status"])
+                + [("", None), ("", None)] + month_grid(now.date(), busy))
+        return [(left, 0, left_w), (agenda(evs, now, cols - left_w - 6, wide=True), left_w, cols)]
+
+    # overview | tasks | agenda
+    a = 34
+    b = a + (cols - a) * 47 // 100
+    first = (head + overview(evs, now, a - 4, stacked=True)
+             + [("", None), ("", None)] + month_grid(now.date(), busy)
+             + stats(evs, rems, now, a - 4))
+    return [(first, 0, a),
+            (reminder_lines(rems, now, b - a - 6, state["rem_status"]), a, b),
+            (agenda(evs, now, cols - b - 6, wide=True), b, cols)]
+
+
+def follow(lines, item, off, height):
+    """Scroll offset that keeps `item` (with a little context) inside the column."""
+    idx = next((i for i, (_, it) in enumerate(lines) if it is item), None)
+    if idx is not None:
+        if idx < off + 1:
+            off = idx - 3
+        elif idx > off + height - 3:
+            off = idx - height + 4
+    return max(0, min(off, len(lines) - height))
+
+
+def compose(columns, offsets, height):
+    """Columns → rows of cells [(text, item, x_from, x_to), ...], each column at its own offset."""
+    rows = [[] for _ in range(height)]
+    for n, (lines, x0, x1) in enumerate(columns):
+        off = offsets[n]
+        view = lines[off:off + height]
+        if off:
+            view[0] = (f"  {rgb(FAINT)}↑ {off} more{R}", None)
+        hidden = len(lines) - off - height
+        if hidden > 0:
+            view[-1] = (f"  {rgb(FAINT)}↓ {hidden + 1} more{R}", None)
+        view += [("", None)] * (height - len(view))
+        sep = f"{rgb(FG_GHOST)}│{R}" if n else ""
+        for y, (text, item) in enumerate(view):
+            rows[y].append((sep + text, item, x0, x1))
     return rows
 
 
@@ -500,16 +599,14 @@ def paint(rows, selected, hovered, height):
     return out
 
 
-def selectable(rows):
+def selectable(columns):
     """Items in reading order (left column first), each once."""
     seen, order = set(), []
-    for col in range(max(len(r) for r in rows) if rows else 0):
-        for cells in rows:
-            if col < len(cells):
-                item = cells[col][1]
-                if item is not None and id(item) not in seen:
-                    seen.add(id(item))
-                    order.append(item)
+    for lines, _, _ in columns:
+        for _, item in lines:
+            if item is not None and id(item) not in seen:
+                seen.add(id(item))
+                order.append(item)
     return order
 
 
@@ -578,6 +675,7 @@ def cmd_popup():
     load_reminders()
     selected = hovered = None
     pointer = "default"
+    offsets = []
 
     def set_pointer(shape):
         # kitty OSC 22: mouse pointer shape for this window
@@ -591,15 +689,20 @@ def cmd_popup():
         sys.stdout.write("\033[?25l\033[?1003h\033[?1006h")  # hide cursor, SGR mouse incl. motion
         while True:
             size = os.get_terminal_size()
-            rows = layout(state, size.columns)
-            items = selectable(rows)
+            columns = layout(state, size.columns)
+            items = selectable(columns)
             if selected is not None and not any(i is selected for i in items):
                 # the item list was rebuilt: keep the selection on the same thing
                 key = selected.get("id") or (selected["title"], selected["start"])
                 selected = next((i for i in items if (i.get("id") or (i["title"], i.get("start"))) == key), None)
             if hovered is not None and not any(i is hovered for i in items):
                 hovered = None
-            body = paint(rows, selected, hovered, size.lines - 2)
+            height = size.lines - 2
+            if len(offsets) != len(columns):
+                offsets = [0] * len(columns)
+            offsets = [follow(lines, selected, off, height) for (lines, _, _), off in zip(columns, offsets)]
+            rows = compose(columns, offsets, height)
+            body = paint(rows, selected, hovered, height)
             hint = (f"  {rgb(FAINT)}↑↓ select · enter open · space done · "
                     f"r refresh · q close{R}")
             sys.stdout.write("\033[H\033[2J" + "\n".join(body) + f"\033[{size.lines};1H" + hint)
@@ -681,7 +784,7 @@ def cmd_toggle(big=False):
     # the move rule is relative to the monitor, so no mon["x"]/mon["y"] offset
     mw, mh = mon["width"] / mon["scale"], mon["height"] / mon["scale"]
     if big:
-        w, h = int(mw * 0.62), int(mh * 0.72)
+        w, h = int(mw * 0.86), int(mh * 0.84)
         x, y = int((mw - w) / 2), int((mh - h) / 2)
         extra = "-o font_size=13 -o window_padding_width=28 -o background_opacity=0.97"
         rules_extra = ", dim_around = true, stay_focused = true"
