@@ -496,15 +496,34 @@ def stats(evs, rems, now, width):
     return out
 
 
-def agenda(evs, now, width, wide=False):
-    """Events grouped by day; `wide` adds the location on the same line."""
+def agenda(evs, now, width, wide=False, rems=()):
+    """Events and dated reminders grouped by day; `wide` adds the location on the same line.
+    Overdue reminders sit under today."""
     current, _ = now_next(evs, now)
+    entries = [(e["start"].date(), 0 if e["all_day"] else 1, e["start"], e) for e in evs]
+    for rem in rems:
+        if rem["due"]:
+            d = max(rem["due"].date(), now.date())
+            entries.append((d, 0 if rem["all_day"] else 1, rem["due"], rem))
+    entries.sort(key=lambda x: x[:3])
     out, last = [], None
-    for ev in evs:
-        d = ev["start"].date()
+    for d, _, _, ev in entries:
         if d != last:
             out += [("", None), (heading(day_label(d), width, GREEN if d == now.date() else ACCENT), None)]
             last = d
+        if ev["kind"] == "rem":
+            due, color = due_label(ev, now)
+            when = "today" if ev["all_day"] else f"{ev['due']:%H:%M}"
+            if color == RED:
+                when = due  # overdue: keep the real day
+            flag = f"{rgb(RED, True)}!{R} " if ev["priority"] == 1 else ""
+            room = width - 19 - (2 if flag else 0) - (2 if ev["link"] else 0)
+            line = (f"  {rgb(FG_GHOST)}▏{R} {rgb(RED if color == RED else MUTED)}{when:<11}{R}  "
+                    f"{rgb(ACCENT)}○{R} {flag}{rgb(FG)}{short(ev['title'], room)}{R}")
+            if ev["link"]:
+                line += f" {rgb(ACCENT)}↗{R}"
+            out.append((line, ev))
+            continue
         past = not ev["all_day"] and ev["end"] <= now
         live = ev is current
         mark = f"{rgb(GREEN)}▌" if live else f"{rgb(FG_GHOST)}▏"
@@ -533,7 +552,7 @@ def layout(state, cols):
         lines = (head + overview(evs, now, w)
                  + reminder_lines(rems, now, w, state["rem_status"])
                  + [("", None)] + month_grid(now.date(), busy)
-                 + agenda(evs, now, w))
+                 + agenda(evs, now, w, rems=rems))
         return [(lines, 0, cols)]
 
     if cols < 140:
@@ -541,7 +560,7 @@ def layout(state, cols):
         left = (head + overview(evs, now, left_w - 4)
                 + reminder_lines(rems, now, left_w - 4, state["rem_status"])
                 + [("", None), ("", None)] + month_grid(now.date(), busy))
-        return [(left, 0, left_w), (agenda(evs, now, cols - left_w - 6, wide=True), left_w, cols)]
+        return [(left, 0, left_w), (agenda(evs, now, cols - left_w - 6, wide=True, rems=rems), left_w, cols)]
 
     # overview | tasks | agenda
     a = 34
@@ -551,7 +570,7 @@ def layout(state, cols):
              + stats(evs, rems, now, a - 4))
     return [(first, 0, a),
             (reminder_lines(rems, now, b - a - 6, state["rem_status"]), a, b),
-            (agenda(evs, now, cols - b - 6, wide=True), b, cols)]
+            (agenda(evs, now, cols - b - 6, wide=True, rems=rems), b, cols)]
 
 
 def follow(lines, item, off, height):
@@ -729,7 +748,8 @@ def cmd_popup():
                         i = next((n for n, it in enumerate(items) if it is selected), -1)
                         selected = items[max(0, min(len(items) - 1, i + (1 if b == 65 else -1)))]
                     elif b == 0 and kind == "M" and item:
-                        if item["kind"] == "rem" and x - cell[2] < 5:  # the ○ checks it off
+                        ring = re.sub(r"\033\[[0-9;]*m", "", cell[0]).find("○")
+                        if item["kind"] == "rem" and abs(x - cell[2] - ring) <= 1:  # the ○ checks it off
                             finish(item)
                             hovered = None
                         elif open_link(item):
