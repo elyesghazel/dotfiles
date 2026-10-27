@@ -132,8 +132,27 @@ def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def cell_width(ch):
+    """Terminal columns of one character: emoji like 💻 take two, joiners none."""
+    import unicodedata
+    if ch in "‍️" or unicodedata.combining(ch):
+        return 0
+    return 2 if unicodedata.east_asian_width(ch) in "WF" else 1
+
+
+def text_width(s):
+    return sum(cell_width(c) for c in s)
+
+
 def short(s, n):
-    return s if len(s) <= n else s[: n - 1] + "…"
+    if text_width(s) <= n:
+        return s
+    out, w = "", 0
+    for c in s:
+        if w + cell_width(c) > n - 1:
+            break
+        out, w = out + c, w + cell_width(c)
+    return out + "…"
 
 
 # ── apple reminders ────────────────────────────────────
@@ -336,7 +355,7 @@ HOVER = bg("#1b1b27")  # row under the mouse
 
 
 def visible(s):
-    return len(re.sub(r"\033\[[0-9;]*m", "", s))
+    return text_width(re.sub(r"\033\[[0-9;]*m", "", s))
 
 
 # A rendered line is (text, item): `item` is the event or reminder it shows, or None.
