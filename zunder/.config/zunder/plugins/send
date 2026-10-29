@@ -177,7 +177,18 @@ def newest_picture():
 def payload(latest=False):
     """(description, kind) of what Enter would send, without reading the clipboard data yet."""
     if WSL:
-        kind, files = win_clip()
+        # PowerShell takes ~1 s, so keystrokes after `send ` reuse the last look for a moment
+        probe = CACHE / "clip.json"
+        try:
+            if time.time() - probe.stat().st_mtime < 3:
+                kind, names = json.loads(probe.read_text())
+                files = [Path(n) for n in names]
+            else:
+                raise OSError
+        except (OSError, ValueError):
+            kind, files = win_clip()
+            CACHE.mkdir(parents=True, exist_ok=True)
+            probe.write_text(json.dumps([kind, [str(f) for f in files]]))
         what = {"files": "copied files", "image": "clipboard screenshot", "text": "clipboard text",
                 "picture": f"latest screenshot: {files[0].name}" if files else ""}.get(kind, "")
         return what, kind
