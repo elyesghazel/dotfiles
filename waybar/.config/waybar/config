@@ -22,7 +22,7 @@
 
     "group/right": {
         "orientation": "horizontal",
-        "modules": ["group/tray", "custom/claude", "cpu", "memory", "pulseaudio", "network", "bluetooth", "battery"]
+        "modules": ["group/tray", "custom/claude", "cpu", "memory", "idle_inhibitor", "pulseaudio", "network", "bluetooth", "battery"]
     },
 
     "group/tray": {
@@ -138,6 +138,16 @@
         "format": "<span font_family='Material Symbols Rounded' size='120%' rise='-2pt'>\uf7a3</span>  {used:0.1f}G",
         "tooltip-format": "{used:0.1f}G / {total:0.1f}G",
         "states": { "warning": 80, "critical": 90 }
+    },
+
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated":   "󰅶",
+            "deactivated": "󰾪"
+        },
+        "tooltip-format-activated":   "Staying awake: no lock or suspend",
+        "tooltip-format-deactivated": "Auto-lock after 5 min"
     },
 
     "pulseaudio": {

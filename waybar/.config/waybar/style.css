@@ -214,6 +214,7 @@
 
 /* ── right: controls ────────────────────────────────── */
 
+#idle_inhibitor,
 #pulseaudio,
 #network,
 #bluetooth,
@@ -225,6 +226,7 @@
     border-radius: 8px;
 }
 
+#idle_inhibitor:hover,
 #pulseaudio:hover,
 #network:hover,
 #bluetooth:hover,
@@ -238,6 +240,9 @@
 #network.disabled {
     color: @fg-faint;
 }
+
+#idle_inhibitor.deactivated { color: @fg-faint; }
+#idle_inhibitor.activated   { color: @yellow; }
 
 #bluetooth.connected   { color: @accent; font-size: 12.5px; }
 #network.disconnected  { color: @red; }
