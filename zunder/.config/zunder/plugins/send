@@ -1,0 +1,225 @@
+#!/usr/bin/python3
+# Taildrop the clipboard to a tailnet device: `send` lists the devices online right now, Enter
+# sends whatever is on the clipboard (a screenshot as PNG, copied files as themselves, text as a
+# .txt). Empty clipboard falls back to the newest file in ~/Pictures. The last device is on top.
+#
+# `send --shot` (bound to SUPER+CTRL+S) selects a region and sends it straight to the last device.
+# Same Taildrop as the `send` fish function; needs `tailscale set --operator=$USER` once.
+# @zunder.name   Send to device
+# @zunder.prefix send
+# @zunder.glyph  󰒊
+import sys
+
+sys.dont_write_bytecode = True
+
+import json  # noqa: E402
+import os
+import shlex
+import subprocess
+import time
+import urllib.parse
+from pathlib import Path
+
+HERE = Path(__file__).resolve()
+CACHE = Path.home() / ".cache/zunder-send"
+TARGETS = CACHE / "targets.json"
+LAST = CACHE / "last"
+OUT = Path("/tmp/zunder-send")
+PICTURES = Path.home() / "Pictures"
+TTL = 30
+DEFAULT = "u363359"
+
+LABELS = {
+    "u363359": "work laptop (Windows)",
+    "u363359-wsl": "work laptop WSL",
+    "elyes-iphone": "iPhone",
+    "elyes-arch": "PC",
+    "elyes-laptop": "laptop",
+    "elyes-ghazel-server": "VPS",
+    "pi": "Pi",
+    "pixel-9": "Pixel",
+}
+
+
+def emit(title, subtitle="", hint="", action=None, actions=None):
+    line = {"title": title, "subtitle": subtitle, "hint": hint}
+    if action:
+        line["action"] = action
+    if actions:
+        line["actions"] = actions
+    print(json.dumps(line), flush=True)
+
+
+def me(*args):
+    return " ".join(shlex.quote(a) for a in (sys.executable, str(HERE), *args))
+
+
+def notify(title, body=""):
+    subprocess.run(["notify-send", "-a", "zunder", "-i", "document-send", title, body], check=False)
+
+
+def run(*cmd, timeout=3):
+    try:
+        return subprocess.run(cmd, capture_output=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def last():
+    try:
+        return LAST.read_text().strip()
+    except OSError:
+        return ""
+
+
+# ── devices ────────────────────────────────────────────
+
+
+def targets():
+    """Online Taildrop receivers, cached for TTL seconds since this runs on every keystroke."""
+    try:
+        if time.time() - TARGETS.stat().st_mtime < TTL:
+            return json.loads(TARGETS.read_text())
+    except (OSError, ValueError):
+        pass
+    r = run("tailscale", "file", "cp", "--targets", timeout=5)
+    if r is None or r.returncode != 0:
+        raise RuntimeError((r.stderr.decode().strip().splitlines() or ["tailscale not running"])[-1] if r else "tailscale not found")
+    hosts = []
+    for line in r.stdout.decode().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2 and "offline" not in line:
+            hosts.append(parts[1])
+    CACHE.mkdir(parents=True, exist_ok=True)
+    TARGETS.write_text(json.dumps(hosts))
+    return hosts
+
+
+# ── what to send ───────────────────────────────────────
+
+
+def clipboard_types():
+    r = run("wl-paste", "--list-types")
+    return r.stdout.decode().split() if r and r.returncode == 0 else []
+
+
+def newest_picture():
+    files = [p for p in PICTURES.glob("*") if p.is_file() and not p.name.startswith(".")]
+    return max(files, key=lambda p: p.stat().st_mtime) if files else None
+
+
+def payload(latest=False):
+    """(description, kind) of what Enter would send, without reading the clipboard data yet."""
+    types = [] if latest else clipboard_types()
+    if "text/uri-list" in types:
+        return "copied files", "files"
+    if any(t.startswith("image/") for t in types):
+        return "clipboard screenshot", "image"
+    if any(t.startswith("text/") or t in ("UTF8_STRING", "STRING") for t in types):
+        return "clipboard text", "text"
+    pic = newest_picture()
+    if pic:
+        return f"latest picture: {pic.name}", "picture"
+    return "", ""
+
+
+def materialise(kind):
+    """Turn the payload into files on disk for `tailscale file cp`."""
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    OUT.mkdir(parents=True, exist_ok=True)
+    if kind == "files":
+        r = run("wl-paste", "--type", "text/uri-list")
+        paths = [Path(urllib.parse.unquote(urllib.parse.urlparse(u).path))
+                 for u in r.stdout.decode().split() if u.startswith("file://")] if r else []
+        return [p for p in paths if p.exists()]
+    if kind == "image":
+        types = clipboard_types()
+        mime = "image/png" if "image/png" in types else next(t for t in types if t.startswith("image/"))
+        ext = mime.split("/")[1].replace("jpeg", "jpg")
+        f = OUT / f"screenshot-{stamp}.{ext}"
+        r = run("wl-paste", "--type", mime, timeout=10)
+        f.write_bytes(r.stdout if r else b"")
+        return [f]
+    if kind == "text":
+        f = OUT / f"clip-{stamp}.txt"
+        r = run("wl-paste", "--no-newline", "--type", "text", timeout=10)
+        f.write_bytes(r.stdout if r else b"")
+        return [f]
+    if kind == "picture":
+        return [newest_picture()]
+    return []
+
+
+def send(host, files, what):
+    files = [f for f in files if f and f.exists() and (f.is_dir() or f.stat().st_size)]
+    if not files:
+        notify("Nothing to send", "clipboard and ~/Pictures are empty")
+        return 1
+    label = LABELS.get(host, host)
+    r = run("tailscale", "file", "cp", *map(str, files), f"{host}:", timeout=300)
+    if r is None or r.returncode != 0:
+        err = r.stderr.decode().strip().splitlines()[-1] if r and r.stderr else "timed out"
+        notify(f"Send to {label} failed", err)
+        return 1
+    CACHE.mkdir(parents=True, exist_ok=True)
+    LAST.write_text(host)
+    names = ", ".join(f.name for f in files[:3]) + (f" +{len(files) - 3}" if len(files) > 3 else "")
+    notify(f"Sent to {label}", f"{what}: {names}" if what else names)
+    return 0
+
+
+def shot():
+    """Region screenshot straight to the last device; also left on the clipboard."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    region = run("slurp", "-w", "0", timeout=120)
+    if region is None or region.returncode != 0:
+        return 1  # selection cancelled
+    f = OUT / f"screenshot-{time.strftime('%Y%m%d-%H%M%S')}.png"
+    if subprocess.run(["grim", "-g", region.stdout.decode().strip(), str(f)]).returncode != 0:
+        notify("Screenshot failed")
+        return 1
+    with open(f, "rb") as fh:
+        subprocess.Popen(["wl-copy", "--type", "image/png"], stdin=fh)
+    return send(last() or DEFAULT, [f], "screenshot")
+
+
+# ── entry ──────────────────────────────────────────────
+
+args = sys.argv[1:]
+if args[:1] == ["--shot"]:
+    sys.exit(shot())
+if args[:1] == ["--to"] and len(args) >= 2:
+    latest = "--latest" in args
+    what, kind = payload(latest)
+    sys.exit(send(args[1], materialise(kind), what))
+
+query = (args[0] if args else "").strip().lower()
+try:
+    hosts = targets()
+except RuntimeError as e:
+    print(str(e), file=sys.stderr)
+    sys.exit(1)
+
+what, kind = payload()
+if not kind:
+    emit("Nothing to send", "copy a screenshot, files or text first")
+    sys.exit()
+
+prev = last()
+hosts.sort(key=lambda h: (h != prev, h != DEFAULT, LABELS.get(h, h)))
+shown = 0
+for h in hosts:
+    label = LABELS.get(h, h)
+    if query and query not in h.lower() and query not in label.lower():
+        continue
+    actions = []
+    if kind != "picture" and newest_picture():
+        actions.append({"title": f"Send latest picture ({newest_picture().name})", "glyph": "󰋩",
+                        "run": me("--to", h, "--latest")})
+    actions.append({"title": "Copy device name", "copy": h})
+    emit(label, f"{what} → {h}" if label != h else what, "↵ send" + (" · last" if h == prev else ""),
+         action={"run": me("--to", h)}, actions=actions)
+    shown += 1
+
+if not shown:
+    emit(f"No online device matches “{query}”", "offline devices aren't listed")
