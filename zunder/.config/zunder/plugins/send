@@ -65,7 +65,7 @@ def notify(title, body=""):
 
 def run(*cmd, timeout=3):
     try:
-        return subprocess.run(cmd, capture_output=True, timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, stdin=subprocess.DEVNULL, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -141,7 +141,7 @@ def win_clip(dump=False):
     script = ("$dump = $true\n" if dump else "$dump = $false\n") + WIN_CLIP
     enc = b64encode(script.encode("utf-16-le")).decode()
     r = subprocess.run([POWERSHELL, "-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", enc],
-                       capture_output=True, cwd="/mnt/c", timeout=15)
+                       capture_output=True, stdin=subprocess.DEVNULL, cwd="/mnt/c", timeout=15)
     try:
         d = json.loads(r.stdout.decode("utf-8", "replace").strip() or "{}")
     except ValueError:
