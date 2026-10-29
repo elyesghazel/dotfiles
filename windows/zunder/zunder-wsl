@@ -121,7 +121,7 @@ wsl.exe -d {distro} -e {self} {plugin}
 
 
 def windows_plugins_dir():
-    r = subprocess.run(["cmd.exe", "/c", "echo %APPDATA%"], capture_output=True, cwd="/mnt/c")
+    r = subprocess.run(["/mnt/c/Windows/System32/cmd.exe", "/c", "echo %APPDATA%"], capture_output=True, cwd="/mnt/c")
     appdata = r.stdout.decode(errors="replace").strip()
     r = subprocess.run(["wslpath", "-u", appdata], capture_output=True)
     return Path(r.stdout.decode().strip()) / "zunder/plugins"
