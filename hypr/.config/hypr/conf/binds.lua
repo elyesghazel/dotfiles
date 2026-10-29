@@ -78,6 +78,7 @@ hl.bind(mod .. " + K", hl.dsp.exec_cmd("~/.config/waybar/scripts/gcal toggle --b
 hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd([[grim -g "$(slurp -w 0)" - | wl-copy]]))
 hl.bind(mod .. " + S",         hl.dsp.exec_cmd("grim - | wl-copy"))
 hl.bind(mod .. " + ALT + S",   hl.dsp.exec_cmd([[grim -g "$(slurp)" ~/Pictures/$(date +%Y%m%d_%H%M%S).png]]))
+hl.bind(mod .. " + CTRL + S",  hl.dsp.exec_cmd("~/.config/zunder/plugins/send --shot"))  -- region -> last Taildrop device
 
 -- mouse window management
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
