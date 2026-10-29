@@ -11,12 +11,12 @@ $State = Join-Path $env:LOCALAPPDATA "tdsend"
 $LastFile = Join-Path $State "last"
 $Out = Join-Path $env:TEMP "tdsend"
 $Default = "elyes-laptop"
+$Hide = @("u363359-wsl")  # WSL on this laptop, not another device
 $Labels = @{
     "elyes-laptop"        = "Arch laptop"
     "elyes-arch"          = "PC"
     "elyes-iphone"        = "iPhone"
     "elyes-ghazel-server" = "VPS"
-    "u363359-wsl"         = "WSL"
     "pi"                  = "Pi"
     "pixel-9"             = "Pixel"
 }
@@ -78,7 +78,7 @@ if ($To) { Send $To $kind; exit }
 
 $prev = if (Test-Path $LastFile) { (Get-Content $LastFile -Raw).Trim() } else { $Default }
 $hosts = @(& $Tailscale file cp --targets 2>$null | Where-Object { $_ -notmatch "offline" } |
-    ForEach-Object { ($_ -split "`t")[1] } | Where-Object { $_ } |
+    ForEach-Object { ($_ -split "`t")[1] } | Where-Object { $_ -and $Hide -notcontains $_ } |
     Sort-Object @{ E = { $_ -ne $prev } }, @{ E = { $_ -ne $Default } }, @{ E = { Label $_ } })
 if (-not $hosts) { Notify "No devices online" "tailscale file cp --targets is empty"; exit }
 

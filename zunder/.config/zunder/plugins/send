@@ -28,10 +28,10 @@ OUT = Path("/tmp/zunder-send")
 PICTURES = Path.home() / "Pictures"
 TTL = 30
 DEFAULT = "u363359"
+HIDE = {"u363359-wsl"}  # WSL on the work laptop, same machine as u363359
 
 LABELS = {
     "u363359": "work laptop (Windows)",
-    "u363359-wsl": "work laptop WSL",
     "elyes-iphone": "iPhone",
     "elyes-arch": "PC",
     "elyes-laptop": "laptop",
@@ -88,7 +88,7 @@ def targets():
     hosts = []
     for line in r.stdout.decode().splitlines():
         parts = line.split("\t")
-        if len(parts) >= 2 and "offline" not in line:
+        if len(parts) >= 2 and "offline" not in line and parts[1] not in HIDE:
             hosts.append(parts[1])
     CACHE.mkdir(parents=True, exist_ok=True)
     TARGETS.write_text(json.dumps(hosts))
