@@ -177,8 +177,8 @@ copy to the VPS for Jellyfin, and `share.elyesghazel.ch` links. Full docs in
 zunder on the Windows work laptop runs the same plugins through WSL: `windows/zunder/zunder-wsl`
 (symlinked to `~/.local/bin` in WSL) runs a plugin and rewrites its `run`/`term` actions, and
 `zunder-wsl --sync` writes one `.cmd` wrapper per executable plugin into `%APPDATA%\zunder\plugins`.
-Run it after adding a plugin. Plugins that touch the clipboard or Tailscale must check
-`WSL_DISTRO_NAME` and use the Windows side (`powershell.exe`, `tailscale.exe`) - see `send`,
+Run it after adding a plugin. Plugins that touch the clipboard or Tailscale must detect WSL
+(`microsoft` in `uname -r`; SSH sessions lack `WSL_DISTRO_NAME`) and use the Windows side (`powershell.exe`, `tailscale.exe`) - see `send`,
 which Taildrops the clipboard (`SUPER+CTRL+S` on Arch snips straight to the last device).
 
 ## Unattended upgrades
