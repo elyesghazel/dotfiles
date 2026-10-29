@@ -5,6 +5,8 @@
 #
 # `send --shot` (bound to SUPER+CTRL+S) selects a region and sends it straight to the last device.
 # Same Taildrop as the `send` fish function; needs `tailscale set --operator=$USER` once.
+# Under WSL (zunder on Windows runs it through zunder-wsl) it uses the Windows clipboard and the
+# Windows tailscale.exe, so files leave as the Windows laptop, not as the WSL node.
 # @zunder.name   Send to device
 # @zunder.prefix send
 # @zunder.glyph  󰒊
@@ -18,6 +20,7 @@ import shlex
 import subprocess
 import time
 import urllib.parse
+from base64 import b64encode
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
@@ -27,14 +30,16 @@ LAST = CACHE / "last"
 OUT = Path("/tmp/zunder-send")
 PICTURES = Path.home() / "Pictures"
 TTL = 30
-DEFAULT = "u363359"
+WSL = bool(os.environ.get("WSL_DISTRO_NAME"))
+TAILSCALE = "/mnt/c/Program Files/Tailscale/tailscale.exe" if WSL else "tailscale"
+DEFAULT = "elyes-laptop" if WSL else "u363359"
 HIDE = {"u363359-wsl"}  # WSL on the work laptop, same machine as u363359
 
 LABELS = {
     "u363359": "work laptop (Windows)",
     "elyes-iphone": "iPhone",
     "elyes-arch": "PC",
-    "elyes-laptop": "laptop",
+    "elyes-laptop": "Arch laptop",
     "elyes-ghazel-server": "VPS",
     "pi": "Pi",
     "pixel-9": "Pixel",
@@ -82,7 +87,7 @@ def targets():
             return json.loads(TARGETS.read_text())
     except (OSError, ValueError):
         pass
-    r = run("tailscale", "file", "cp", "--targets", timeout=5)
+    r = run(TAILSCALE, "file", "cp", "--targets", timeout=5)
     if r is None or r.returncode != 0:
         raise RuntimeError((r.stderr.decode().strip().splitlines() or ["tailscale not running"])[-1] if r else "tailscale not found")
     hosts = []
@@ -98,6 +103,67 @@ def targets():
 # ── what to send ───────────────────────────────────────
 
 
+# ── Windows clipboard (WSL) ────────────────────────────
+
+POWERSHELL = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+# Prints {"kind", "files"} as JSON; with $dump the clipboard is written out to %TEMP%\zunder-send.
+WIN_CLIP = r"""
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+$c = [System.Windows.Forms.Clipboard]; $kind = ""; $files = @()
+$out = Join-Path $env:TEMP "zunder-send"; $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+if ($c::ContainsFileDropList()) { $kind = "files"; $files = @($c::GetFileDropList()) }
+elseif ($c::ContainsImage()) {
+    $kind = "image"
+    if ($dump) {
+        New-Item -ItemType Directory -Force $out | Out-Null
+        $f = Join-Path $out "screenshot-$stamp.png"; $i = $c::GetImage()
+        $i.Save($f, [System.Drawing.Imaging.ImageFormat]::Png); $i.Dispose(); $files = @($f)
+    }
+}
+elseif ($c::ContainsText()) {
+    $kind = "text"
+    if ($dump) {
+        New-Item -ItemType Directory -Force $out | Out-Null
+        $f = Join-Path $out "clip-$stamp.txt"; [IO.File]::WriteAllText($f, $c::GetText()); $files = @($f)
+    }
+}
+else {
+    $p = Get-ChildItem (Join-Path ([Environment]::GetFolderPath("MyPictures")) "Screenshots") -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($p) { $kind = "picture"; $files = @($p.FullName) }
+}
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+ConvertTo-Json -Compress @{ kind = $kind; files = @($files) }
+"""
+
+
+def win_clip(dump=False):
+    script = ("$dump = $true\n" if dump else "$dump = $false\n") + WIN_CLIP
+    enc = b64encode(script.encode("utf-16-le")).decode()
+    r = subprocess.run([POWERSHELL, "-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", enc],
+                       capture_output=True, cwd="/mnt/c", timeout=15)
+    try:
+        d = json.loads(r.stdout.decode("utf-8", "replace").strip() or "{}")
+    except ValueError:
+        return "", []
+    files = d.get("files") or []
+    files = [files] if isinstance(files, str) else files
+    return d.get("kind") or "", [Path(unixpath(f)) for f in files if f]
+
+
+def unixpath(p):
+    r = run("wslpath", "-u", p)
+    return r.stdout.decode().strip() if r and r.returncode == 0 else p
+
+
+def winpath(p):
+    r = run("wslpath", "-w", str(p))
+    return r.stdout.decode().strip() if r and r.returncode == 0 else str(p)
+
+
+# ── Wayland clipboard ──────────────────────────────────
+
+
 def clipboard_types():
     r = run("wl-paste", "--list-types")
     return r.stdout.decode().split() if r and r.returncode == 0 else []
@@ -110,6 +176,11 @@ def newest_picture():
 
 def payload(latest=False):
     """(description, kind) of what Enter would send, without reading the clipboard data yet."""
+    if WSL:
+        kind, files = win_clip()
+        what = {"files": "copied files", "image": "clipboard screenshot", "text": "clipboard text",
+                "picture": f"latest screenshot: {files[0].name}" if files else ""}.get(kind, "")
+        return what, kind
     types = [] if latest else clipboard_types()
     if "text/uri-list" in types:
         return "copied files", "files"
@@ -125,6 +196,8 @@ def payload(latest=False):
 
 def materialise(kind):
     """Turn the payload into files on disk for `tailscale file cp`."""
+    if WSL:
+        return win_clip(dump=True)[1]
     stamp = time.strftime("%Y%m%d-%H%M%S")
     OUT.mkdir(parents=True, exist_ok=True)
     if kind == "files":
@@ -156,7 +229,7 @@ def send(host, files, what):
         notify("Nothing to send", "clipboard and ~/Pictures are empty")
         return 1
     label = LABELS.get(host, host)
-    r = run("tailscale", "file", "cp", *map(str, files), f"{host}:", timeout=300)
+    r = run(TAILSCALE, "file", "cp", *(winpath(f) if WSL else str(f) for f in files), f"{host}:", timeout=300)
     if r is None or r.returncode != 0:
         err = r.stderr.decode().strip().splitlines()[-1] if r and r.stderr else "timed out"
         notify(f"Send to {label} failed", err)
@@ -213,7 +286,7 @@ for h in hosts:
     if query and query not in h.lower() and query not in label.lower():
         continue
     actions = []
-    if kind != "picture" and newest_picture():
+    if kind != "picture" and not WSL and newest_picture():
         actions.append({"title": f"Send latest picture ({newest_picture().name})", "glyph": "󰋩",
                         "run": me("--to", h, "--latest")})
     actions.append({"title": "Copy device name", "copy": h})

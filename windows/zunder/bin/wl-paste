@@ -1,0 +1,7 @@
+#!/bin/bash
+# wl-paste for zunder plugins under WSL: the Windows clipboard as UTF-8 text (--no-newline honoured).
+cd /mnt/c 2>/dev/null
+out=$(/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -NonInteractive -Command \
+  '[Console]::OutputEncoding=[Text.Encoding]::UTF8; $c=Get-Clipboard -Raw; if ($c) { [Console]::Out.Write($c) }' 2>/dev/null | tr -d '\r')
+[ -n "$out" ] || exit 1
+case " $* " in *" --no-newline "*|*" -n "*) printf '%s' "$out" ;; *) printf '%s\n' "$out" ;; esac

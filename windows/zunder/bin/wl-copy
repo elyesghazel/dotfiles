@@ -1,0 +1,7 @@
+#!/bin/bash
+# wl-copy for zunder plugins under WSL: stdin (or the args) onto the Windows clipboard, UTF-8 safe.
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then text="$*"; else text=$(cat); fi
+b=$(printf '%s' "$text" | base64 -w0)
+cd /mnt/c 2>/dev/null
+exec /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -NonInteractive -Command \
+  "Set-Clipboard -Value ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$b')))" >/dev/null 2>&1

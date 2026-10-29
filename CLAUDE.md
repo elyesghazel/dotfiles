@@ -49,7 +49,7 @@ dotfiles/
 ├── claude/      → ~/.claude/    (global CLAUDE.md, settings.json, skills/, bin/)
 ├── gopro/       → ~/.local/bin/, ~/.local/libexec/gopro/, ~/.config/
 ├── ssh/         → ~/.ssh/config.d/  (tailnet host aliases)
-├── windows/     # Windows-side scripts, installed by their own install.ps1 (not stowed)
+├── windows/     # zunder-on-Windows bridge, run from WSL (not stowed)
 ├── autoupdate/  # root timer for unattended upgrades (copied by setup.sh, not stowed)
 └── packages/    # package lists and update script (not stowed)
 ```
@@ -172,13 +172,14 @@ copy to the VPS for Jellyfin, and `share.elyesghazel.ch` links. Full docs in
   dashboard builder), rsync'd to `/opt/docker/gopro-share/` on every `gopro share`
   run so the deployed copy can't drift from the repo.
 
-## Taildrop send
+## zunder plugins on Windows
 
-`zunder/.config/zunder/plugins/send` Taildrops the clipboard (screenshot, copied files or text)
-to an online tailnet device, last device first; `SUPER+CTRL+S` snips a region straight to the
-last device. `windows/taildrop/tdsend.ps1` is the same thing for the Windows work laptop:
-`install.ps1` copies it to `%LOCALAPPDATA%\tdsend` and adds a Start Menu shortcut on
-`Ctrl+Alt+D` (Windows only honours .lnk hotkeys there or on the desktop).
+zunder on the Windows work laptop runs the same plugins through WSL: `windows/zunder/zunder-wsl`
+(symlinked to `~/.local/bin` in WSL) runs a plugin and rewrites its `run`/`term` actions, and
+`zunder-wsl --sync` writes one `.cmd` wrapper per executable plugin into `%APPDATA%\zunder\plugins`.
+Run it after adding a plugin. Plugins that touch the clipboard or Tailscale must check
+`WSL_DISTRO_NAME` and use the Windows side (`powershell.exe`, `tailscale.exe`) - see `send`,
+which Taildrops the clipboard (`SUPER+CTRL+S` on Arch snips straight to the last device).
 
 ## Unattended upgrades
 

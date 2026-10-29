@@ -1,0 +1,22 @@
+#!/bin/bash
+# notify-send for zunder plugins under WSL: a Windows toast through PowerShell.
+# Only the -a/-i/-u/-t style options the plugins use are skipped; title and body are the rest.
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -a|-i|-u|-t|-c|-h|--app-name|--icon|--urgency|--expire-time|--category|--hint) shift 2 ;;
+    -*) shift ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+title=${args[0]:-zunder}; body=${args[1]:-}
+b64() { printf '%s' "$1" | base64 -w0; }
+ps='$d=[Text.Encoding]::UTF8;$t=$d.GetString([Convert]::FromBase64String("'$(b64 "$title")'"));$b=$d.GetString([Convert]::FromBase64String("'$(b64 "$body")'"));
+[void][Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime];
+$x=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);
+$n=$x.GetElementsByTagName("text");[void]$n.Item(0).AppendChild($x.CreateTextNode($t));[void]$n.Item(1).AppendChild($x.CreateTextNode($b));
+$app="{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe";
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($app).Show([Windows.UI.Notifications.ToastNotification]::new($x))'
+enc=$(printf '%s' "$ps" | iconv -f utf-8 -t utf-16le | base64 -w0)
+cd /mnt/c 2>/dev/null
+exec /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand "$enc" >/dev/null 2>&1
