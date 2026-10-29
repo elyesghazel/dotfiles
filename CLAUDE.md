@@ -49,6 +49,7 @@ dotfiles/
 ├── claude/      → ~/.claude/    (global CLAUDE.md, settings.json, skills/, bin/)
 ├── gopro/       → ~/.local/bin/, ~/.local/libexec/gopro/, ~/.config/
 ├── ssh/         → ~/.ssh/config.d/  (tailnet host aliases)
+├── windows/     # Windows-side scripts, installed by their own install.ps1 (not stowed)
 ├── autoupdate/  # root timer for unattended upgrades (copied by setup.sh, not stowed)
 └── packages/    # package lists and update script (not stowed)
 ```
@@ -170,6 +171,14 @@ copy to the VPS for Jellyfin, and `share.elyesghazel.ch` links. Full docs in
 - **`gopro/server/` is deliberately not stowed** — it's the VPS side (nginx conf,
   dashboard builder), rsync'd to `/opt/docker/gopro-share/` on every `gopro share`
   run so the deployed copy can't drift from the repo.
+
+## Taildrop send
+
+`zunder/.config/zunder/plugins/send` Taildrops the clipboard (screenshot, copied files or text)
+to an online tailnet device, last device first; `SUPER+CTRL+S` snips a region straight to the
+last device. `windows/taildrop/tdsend.ps1` is the same thing for the Windows work laptop:
+`install.ps1` copies it to `%LOCALAPPDATA%\tdsend` and adds a Start Menu shortcut on
+`Ctrl+Alt+D` (Windows only honours .lnk hotkeys there or on the desktop).
 
 ## Unattended upgrades
 
