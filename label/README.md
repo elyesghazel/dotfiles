@@ -43,7 +43,7 @@ with nobody logged in, hence `GROUP="users"` (elyes is in `users`). After editin
 
 ## Remote printing (slideplate-ship)
 
-The VPS prints through `~/.ssh/authorized_keys`:
+The printer hangs on the Pi since 2026-10-30 (Debian: `apt install python3-pil poppler-utils fonts-dejavu-core`, copy the two scripts to `~/.local/bin`). The VPS prints through `~/.ssh/authorized_keys` there:
 
 ```
 command="/home/elyes/.local/bin/label-remote",restrict ssh-ed25519 ... slideplate-ship-print

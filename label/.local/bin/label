@@ -18,7 +18,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 DEV = "/dev/usb/lp0"
 DPMM = 8                       # 203 dpi
-FONT = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+FONT = next((f for f in ("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",                    # Arch
+                         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")      # Debian / Pi
+             if os.path.exists(f)), "DejaVuSans-Bold.ttf")
 ROLLS = {"100x150": (100, 150), "60x80": (60, 80)}
 GAP_MM = 2
 PT_PER_MM = 72 / 25.4
