@@ -7,6 +7,12 @@
     gcal toggle    open the popup under the bar, or close it if it is open
     gcal toggle --big   same, as a large centered overlay (SUPER+K, conf/binds.lua)
     gcal lock      agenda + reminders as pango markup for hyprlock.conf
+    gcal add "<title> @ <when> | <description>"   new Google Calendar event
+    gcal auth      one-time Google sign-in so `a` / `gcal add` can write events
+
+The popup has two tabs (tab / 1 / 2): the overview, and a week calendar where
+arrows move through days, enter opens an item (SlidePlate ones open their vault note)
+and `a` adds an event. Writing needs ~/.config/gcal/oauth.env (from `gcal auth`).
 
 Calendars live in ~/.config/gcal/calendars (outside the repo, it holds secret URLs),
 one per line:   <name>  <secret iCal address>
@@ -21,6 +27,8 @@ import re
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -74,12 +82,12 @@ def local(value):
     return dt.datetime.combine(value, dt.time()).astimezone(), True
 
 
-def events(days, force=False, keep_past=False):
+def events(days, force=False, keep_past=False, start=None):
     import icalendar
     import recurring_ical_events
 
     now = dt.datetime.now().astimezone()
-    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = start or now.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + dt.timedelta(days=days)
     out = []
     for name, url in calendars():
@@ -89,12 +97,16 @@ def events(days, force=False, keep_past=False):
             e = local(ev["DTEND"].dt)[0] if "DTEND" in ev else s + dt.timedelta(hours=1)
             if e <= now and not all_day and not keep_past:
                 continue
+            desc = str(ev.get("DESCRIPTION", ""))
             out.append({
                 "title": str(ev.get("SUMMARY", "(no title)")),
                 "where": str(ev.get("LOCATION", "")),
                 "start": s, "end": e, "all_day": all_day, "cal": name, "kind": "ev",
-                "link": first_link(str(ev.get("URL", "")), str(ev.get("DESCRIPTION", ""))),
+                "uid": str(ev.get("UID", "")), "desc": desc,
+                "link": first_link(str(ev.get("URL", "")), desc),
             })
+    seen = {e["uid"] for e in out}
+    out += [e for e in added_events() if e["uid"] not in seen and start <= e["start"] < end]
     out.sort(key=lambda x: (x["start"], not x["all_day"]))
     return out
 
@@ -205,7 +217,7 @@ def reminders(done=()):
         out.append({
             "kind": "rem", "id": r["id"], "title": r["title"], "due": due,
             "all_day": r.get("all_day"), "priority": r.get("priority") or 0,
-            "link": first_link(r["title"], r.get("desc")),
+            "link": first_link(r["title"], r.get("desc")), "desc": r.get("desc") or "",
         })
     far = dt.datetime.max.replace(tzinfo=dt.timezone.utc)
     out.sort(key=lambda x: (x["due"] or far, x["title"].lower()))
@@ -238,6 +250,504 @@ def due_label(rem, now):
     else:
         day = f"{d:%d %b}"
     return (day if rem["all_day"] else f"{day} {due:%H:%M}"), color
+
+
+# ── writing to google calendar ─────────────────────────
+# The iCal feeds above are read-only. Writes go through the Calendar API with a refresh
+# token in ~/.config/gcal/oauth.env (GCAL_CLIENT_ID, GCAL_CLIENT_SECRET, GCAL_REFRESH_TOKEN,
+# GCAL_REDIRECT_URI), written by `gcal auth`. The secret feed lags a few minutes behind,
+# so events made here are kept in ADDED until the feed has them.
+
+OAUTH = CONF.parent / "oauth.env"
+ADDED = CACHE / "added.json"
+SCOPE = "https://www.googleapis.com/auth/calendar.events"
+
+
+def oauth_conf():
+    conf = {}
+    if OAUTH.exists():
+        for line in OAUTH.read_text().splitlines():
+            key, sep, value = line.partition("=")
+            if sep and not key.startswith("#"):
+                conf[key.strip()] = value.strip().strip('"')
+    return conf
+
+
+def google(method, url, body=None, form=None):
+    data = json.dumps(body).encode() if body is not None else urllib.parse.urlencode(form).encode() if form else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Content-Type", "application/json" if body is not None else "application/x-www-form-urlencoded")
+    if form is None:
+        req.add_header("Authorization", f"Bearer {access_token()}")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="ignore")
+        try:
+            detail = json.loads(detail)["error"]
+            detail = detail.get("message", detail) if isinstance(detail, dict) else detail
+        except Exception:
+            pass
+        raise RuntimeError(f"Google {e.code}: {detail}") from None
+
+
+def access_token():
+    conf = oauth_conf()
+    if not conf.get("GCAL_REFRESH_TOKEN"):
+        raise RuntimeError("not signed in, run `gcal auth` once")
+    return google("POST", "https://oauth2.googleapis.com/token", form={
+        "client_id": conf["GCAL_CLIENT_ID"], "client_secret": conf["GCAL_CLIENT_SECRET"],
+        "refresh_token": conf["GCAL_REFRESH_TOKEN"], "grant_type": "refresh_token"})["access_token"]
+
+
+def added_events():
+    if not ADDED.exists():
+        return []
+    out = []
+    for e in json.loads(ADDED.read_text()):
+        e["start"], e["end"] = dt.datetime.fromisoformat(e["start"]), dt.datetime.fromisoformat(e["end"])
+        out.append(e)
+    return out
+
+
+def remember_added(ev):
+    keep = [e for e in added_events() if e["end"] > dt.datetime.now().astimezone() - dt.timedelta(days=1)]
+    keep.append(ev)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    ADDED.write_text(json.dumps([{**e, "start": e["start"].isoformat(), "end": e["end"].isoformat()}
+                                 for e in keep]))
+
+
+TIME = r"\d{1,2}(?::\d{2})?"
+
+
+def parse_when(when, day):
+    """'tue 14:00-15:30', '14:00', 'fri', '' → (start, end, all_day); `day` fills in a bare time."""
+    when = when.strip()
+    m = re.fullmatch(rf"(.*?)\s*({TIME})\s*(?:-|–|bis|to)\s*({TIME})", when)
+    date_part, t0, t1 = (m[1], m[2], m[3]) if m else (when, None, None)
+    if not m:
+        m = re.fullmatch(rf"(.*?)\s*({TIME})", when)
+        if m and (":" in m[2] or not m[1] or m[1].endswith(("at", "um"))):
+            date_part, t0 = re.sub(r"\s*(at|um)$", "", m[1]), m[2]
+
+    def gnu(expr):
+        r = subprocess.run(["date", "-d", expr, "+%Y-%m-%d"], capture_output=True, text=True)
+        if r.returncode:
+            raise ValueError(f"can't read the date '{expr}'")
+        return dt.date.fromisoformat(r.stdout.strip())
+
+    d = gnu(date_part) if date_part.strip() else day
+    if not t0:
+        return dt.datetime.combine(d, dt.time()).astimezone(), dt.datetime.combine(d + dt.timedelta(days=1), dt.time()).astimezone(), True
+    hm = lambda t: dt.time(*map(int, (t + ":00").split(":")[:2]))
+    start = dt.datetime.combine(d, hm(t0)).astimezone()
+    end = dt.datetime.combine(d, hm(t1)).astimezone() if t1 else start + dt.timedelta(hours=1)
+    if end <= start:
+        end += dt.timedelta(days=1)
+    return start, end, False
+
+
+def add_event(text, day=None):
+    """'Dentist @ tue 14:00 | bring the card' → created event dict. No '@' means all day on `day`."""
+    text, _, desc = text.partition("|")
+    title, _, when = text.partition("@")
+    title = title.strip()
+    if not title:
+        raise ValueError("no title")
+    start, end, all_day = parse_when(when, day or dt.date.today())
+    body = {"summary": title, "description": desc.strip()}
+    if all_day:
+        body["start"], body["end"] = {"date": f"{start:%Y-%m-%d}"}, {"date": f"{end:%Y-%m-%d}"}
+    else:
+        body["start"], body["end"] = {"dateTime": start.isoformat()}, {"dateTime": end.isoformat()}
+    made = google("POST", "https://www.googleapis.com/calendar/v3/calendars/primary/events", body=body)
+    ev = {"title": title, "where": "", "start": start, "end": end, "all_day": all_day,
+          "cal": "Personal", "kind": "ev", "uid": made.get("iCalUID", ""), "desc": body["description"],
+          "link": first_link(body["description"])}
+    remember_added(ev)
+    return ev
+
+
+def cmd_add():
+    try:
+        ev = add_event(" ".join(sys.argv[2:]))
+    except Exception as e:
+        sys.exit(f"gcal add: {e}")
+    print(f"added: {ev['title']} · {ev['start']:%a %d %b} {span(ev)}")
+
+
+def cmd_auth():
+    conf = oauth_conf()
+    for key, ask in (("GCAL_CLIENT_ID", "OAuth client id"), ("GCAL_CLIENT_SECRET", "client secret"),
+                     ("GCAL_REDIRECT_URI", "redirect URI registered on the client")):
+        conf[key] = conf.get(key) or input(f"{ask}: ").strip()
+    url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
+        "client_id": conf["GCAL_CLIENT_ID"], "redirect_uri": conf["GCAL_REDIRECT_URI"],
+        "response_type": "code", "scope": SCOPE, "access_type": "offline", "prompt": "consent"})
+    print(f"\nOpen this, allow access, then copy code=… out of the address bar:\n\n{url}\n")
+    code = urllib.parse.unquote(input("code: ").strip().split("code=")[-1].split("&")[0])
+    tok = google("POST", "https://oauth2.googleapis.com/token", form={
+        "code": code, "client_id": conf["GCAL_CLIENT_ID"], "client_secret": conf["GCAL_CLIENT_SECRET"],
+        "redirect_uri": conf["GCAL_REDIRECT_URI"], "grant_type": "authorization_code"})
+    conf["GCAL_REFRESH_TOKEN"] = tok["refresh_token"]
+    OAUTH.parent.mkdir(parents=True, exist_ok=True)
+    OAUTH.touch(mode=0o600)
+    OAUTH.write_text("".join(f"{k}={v}\n" for k, v in conf.items()))
+    print(f"saved {OAUTH}")
+
+
+# ── slideplate ─────────────────────────────────────────
+# Dated video notes in the vault show up in the week view; SlidePlate events, tasks and
+# notes are tinted and open their vault note (or the SlidePlate README) on enter.
+
+VAULT = Path(os.environ.get("GCAL_VAULT", Path.home() / "projects/elyes-vault"))
+SP_DIR = "02_Business/slideplate"
+SP = "#fab387"
+
+
+def obsidian(rel):
+    return "obsidian://open?" + urllib.parse.urlencode({"vault": VAULT.name, "file": rel}, quote_via=urllib.parse.quote)
+
+
+def is_sp(item):
+    text = f"{item['title']} {item.get('desc', '')} {item.get('link') or ''}".lower()
+    return item["kind"] == "note" or "slideplate" in text or "sp:" in text
+
+
+def vault_notes():
+    """Video notes with a `date:` in their frontmatter, as all-day items."""
+    out = []
+    for path in sorted((VAULT / SP_DIR / "videos").glob("*.md")):
+        try:
+            head = path.read_text(errors="ignore").split("\n---", 1)[0]
+        except OSError:
+            continue
+        meta = dict(re.findall(r"^(\w[\w-]*):[ \t]*(.*)$", head, re.M))
+        try:
+            day = dt.date.fromisoformat(meta.get("date", "").strip())
+        except ValueError:
+            continue
+        hook = re.search(r'^>\s*"?(.+?)"?\s*$', path.read_text(errors="ignore"), re.M)
+        status = meta.get("status", "").strip()
+        out.append({
+            "kind": "note", "title": f"🎬 {meta.get('title', path.stem).strip()}", "all_day": True,
+            "start": dt.datetime.combine(day, dt.time()).astimezone(), "status": status,
+            "desc": "\n".join(x for x in (f"status: {status}" if status else "",
+                                          f"hook: {hook[1]}" if hook else "") if x),
+            "link": obsidian(str(path.relative_to(VAULT))), "where": "",
+        })
+    return out
+
+
+def item_link(item):
+    if item.get("link"):
+        return item["link"]
+    if is_sp(item):
+        return obsidian(f"{SP_DIR}/README.md")
+    return "https://calendar.google.com" if item["kind"] == "ev" else None
+
+
+# ── week view ──────────────────────────────────────────
+
+def clean(desc):
+    desc = re.sub(r"<br\s*/?>|</p>", "\n", desc or "")
+    return re.sub(r"<[^>]+>", "", desc).replace("&nbsp;", " ").replace("&amp;", "&").strip()
+
+
+def wrap(text, width):
+    import textwrap
+    out = []
+    for para in text.splitlines() or [""]:
+        out += textwrap.wrap(para, width) or [""]
+    return out
+
+
+def day_items(state, d):
+    """(all-day, timed) items of day `d`: events, dated reminders, vault notes."""
+    now = dt.datetime.now().astimezone()
+    allday, timed = [], []
+    for ev in state["events"]:
+        first, last = ev["start"].date(), (ev["end"] - dt.timedelta(seconds=1)).date()
+        if first <= d <= last:
+            (allday if ev["all_day"] or first != last else timed).append(ev)
+    for rem in state["reminders"]:
+        if rem["due"] and max(rem["due"].date(), now.date()) == d:
+            (allday if rem["all_day"] or rem["due"].date() != d else timed).append(rem)
+    allday += [n for n in state["notes"] if n["start"].date() == d]
+    when = lambda i: i.get("start") or i.get("due")
+    return allday, sorted(timed, key=when)
+
+
+def week_items(state, monday):
+    """Every item of the week in navigation order: day by day, all-day first."""
+    out = []
+    for n in range(7):
+        a, t = day_items(state, monday + dt.timedelta(days=n))
+        out += [(monday + dt.timedelta(days=n), i) for i in a + t]
+    return out
+
+
+def chip(item, width, now):
+    """One-line label of an item inside a day column, with its colours."""
+    if item["kind"] == "rem":
+        due, color = due_label(item, now)
+        t = "" if item["all_day"] else f"{item['due']:%H:%M} "
+        return f"○ {t}{item['title']}", RED if color == RED else SP if is_sp(item) else MUTED, None
+    if item["kind"] == "note":
+        posted = item.get("status") == "posted"
+        return item["title"], FAINT if posted else SP, None
+    past = (item["end"] <= now) if not item["all_day"] else item["end"].date() <= now.date()
+    color = SP if is_sp(item) else ACCENT
+    return item["title"], FAINT if past else FG, None if past else color
+
+
+def block_bg(hex_):
+    """A dark tint of `hex_` for event blocks."""
+    r, g, b = (int(hex_[i:i + 2], 16) for i in (1, 3, 5))
+    return bg("#%02x%02x%02x" % tuple(int(14 + (c - 14) * 0.22) for c in (r, g, b)))
+
+
+def pad_to(s, width):
+    s = short(s, width)
+    return s + " " * max(0, width - text_width(s))
+
+
+def week_view(state, cols, height):
+    """→ (lines, hits): the week grid plus a detail pane; hits are (y, x0, x1, (day, item))."""
+    now = dt.datetime.now().astimezone()
+    day, sel = state["cal_day"], state["cal_sel"]
+    monday = day - dt.timedelta(days=day.weekday())
+    detail_w = 46 if cols >= 150 else 0
+    gutter = 7
+    col_w = max(10, (cols - gutter - (detail_w + 3 if detail_w else 0)) // 7)
+    grid_w = gutter + col_w * 7
+    lines, hits = [], []
+
+    week_no = monday.isocalendar()[1]
+    span_label = (f"{monday:%d %b} – {monday + dt.timedelta(days=6):%d %b %Y}")
+    title = f"  {rgb(FG, True)}{span_label}{R}  {rgb(FAINT)}week {week_no}{R}"
+    lines.append(title)
+    lines.append(f"  {rgb(RED)}{short(state['error'], grid_w - 4)}{R}" if state["error"] else "")
+
+    head = " " * gutter
+    for n in range(7):
+        d = monday + dt.timedelta(days=n)
+        label = f" {d:%a %d}"
+        if d == now.date():
+            cell = f"{bg(GREEN)}\033[1;38;2;14;14;20m{pad_to(label, col_w - 1)}{R} "
+        elif d == day:
+            cell = f"{SEL}{rgb(FG, True)}{pad_to(label, col_w - 1)}{R} "
+        else:
+            cell = f"{rgb(MUTED if d.weekday() < 5 else FAINT, True)}{pad_to(label, col_w)}{R}"
+        head += cell
+    lines.append(head)
+
+    per_day = [day_items(state, monday + dt.timedelta(days=n)) for n in range(7)]
+    rows_all = min(4, max([len(a) for a, _ in per_day] + [1]))
+    for r in range(rows_all):
+        line = " " * gutter
+        y = len(lines)
+        for n, (allday, _) in enumerate(per_day):
+            d = monday + dt.timedelta(days=n)
+            if r < len(allday) and (r < rows_all - 1 or len(allday) == rows_all):
+                item = allday[r]
+                text, fg, tint = chip(item, col_w, now)
+                shade = SEL if item is sel else block_bg(tint) if tint else ""
+                cell = f"{shade}{rgb(fg)} {pad_to(text, col_w - 2)}{R} "
+                hits.append((y, gutter + n * col_w, gutter + (n + 1) * col_w, (d, item)))
+            elif r == rows_all - 1 and len(allday) > rows_all:
+                cell = f"{rgb(FAINT)}{pad_to(f' +{len(allday) - r} more', col_w)}{R}"
+            else:
+                cell = " " * col_w
+            line += cell
+        lines.append(line)
+    lines.append(f"{rgb(FG_GHOST)}{'─' * grid_w}{R}")
+
+    # hours: from the earliest item (or 07) to the latest (or 22)
+    timed = [i for _, t in per_day for i in t]
+    starts = [(i.get("start") or i["due"]).hour for i in timed]
+    ends = [((i.get("end") or i["due"]) - dt.timedelta(minutes=1)).hour + 1 for i in timed]
+    h0, h1 = min(starts + [7]), max(ends + [22])
+    h1 = min(24, max(h1, h0 + 1))
+    avail = height - len(lines) - 1
+    rph = max(1, avail // (h1 - h0))  # rows per hour
+    while (h1 - h0) * rph > avail and h1 - h0 > 6:  # too many hours: trim the quiet ends
+        if h1 - 1 >= max(ends + [h0 + 1]):
+            h1 -= 1
+        elif h0 + 1 <= min(starts + [h1 - 1]):
+            h0 += 1
+        else:
+            break
+
+    while (h1 - h0 + 1) * rph <= avail and (h0 > 6 or h1 < 24):
+        if h1 < 24:
+            h1 += 1
+        else:
+            h0 -= 1
+
+    def row_of(t):
+        return (t.hour - h0) * rph + (t.minute * rph) // 60
+
+    nrows = (h1 - h0) * rph
+    grid = [[None] * 7 for _ in range(nrows)]  # each cell: list of (item, first_row?) per lane
+    for n, (_, items) in enumerate(per_day):
+        spans = []
+        for it in items:
+            s = it.get("start") or it["due"]
+            e = it.get("end") or (s + dt.timedelta(minutes=30))
+            r0 = max(0, min(nrows - 1, row_of(s)))
+            r1 = max(r0 + 1, min(nrows, row_of(e) if e.date() == s.date() else nrows))
+            spans.append((it, r0, r1))
+        # clusters of blocks that overlap each other share the column in lanes
+        cluster, lanes, cluster_end = [], [], -1
+        for it, r0, r1 in sorted(spans, key=lambda x: x[1]) + [(None, nrows + 1, nrows + 1)]:
+            if r0 >= cluster_end and cluster:
+                for c_it, c0, c1, lane in cluster:
+                    for r in range(c0, c1):
+                        if grid[r][n] is None:
+                            grid[r][n] = [None] * len(lanes)
+                        grid[r][n][lane] = (c_it, r - c0, c1 - c0)
+                cluster, lanes = [], []
+            if it is None:
+                break
+            lane = next((k for k, end in enumerate(lanes) if end <= r0), None)
+            if lane is None:
+                lanes.append(r1)
+                lane = len(lanes) - 1
+            else:
+                lanes[lane] = r1
+            cluster.append((it, r0, r1, lane))
+            cluster_end = max(cluster_end, r1) if len(cluster) > 1 else r1
+
+    now_row = row_of(now) if h0 <= now.hour < h1 and monday <= now.date() < monday + dt.timedelta(days=7) else None
+    for r in range(nrows):
+        hour = h0 + r // rph
+        label = f"{hour:02d}:00" if r % rph == 0 else ""
+        line = f"{rgb(FAINT)}{label:>5}{R}  "
+        y = len(lines)
+        for n in range(7):
+            d = monday + dt.timedelta(days=n)
+            cell = grid[r][n]
+            if not cell:
+                if r == now_row and d == now.date():
+                    line += f"{rgb(RED)}{'━' * (col_w - 1)}{R} "
+                else:
+                    dot = "·" if r % rph == 0 else " "
+                    line += f"{rgb(FG_GHOST)}{dot}{R}" + " " * (col_w - 1)
+                continue
+            lane_w = max(3, (col_w - 1) // len(cell))
+            used = 0
+            for k, slot in enumerate(cell):
+                w = lane_w if k < len(cell) - 1 else col_w - 1 - used
+                used += w
+                if slot is None:
+                    line += " " * w
+                    continue
+                it, off, length = slot
+                text, fg, tint = chip(it, w, now)
+                if off == 1 and it["kind"] == "ev":
+                    text, fg = (span(it) if not it["all_day"] else ""), MUTED
+                elif off == 2 and it["kind"] == "ev":
+                    text, fg = it["where"], FAINT
+                elif off:
+                    text = ""
+                shade = SEL if it is sel else block_bg(tint or MUTED)
+                edge = f"{rgb(tint or MUTED)}▎" if it["kind"] == "ev" else " "
+                line += f"{shade}{edge}{rgb(fg, off == 0)}{pad_to(text, w - 1)}{R}"
+                x0 = gutter + n * col_w + used - w
+                hits.append((y, x0, x0 + w, (d, it)))
+            line += " "
+        lines.append(line)
+
+    if detail_w:
+        pane = detail(sel, day, state, detail_w - 2, now)
+        out = []
+        for y in range(max(len(lines), len(pane))):
+            left = lines[y] if y < len(lines) else ""
+            left += " " * max(0, grid_w - visible(left))
+            right = pane[y] if y < len(pane) else ""
+            out.append(f"{left} {rgb(FG_GHOST)}│{R} {right}")
+        lines = out
+    else:
+        lines += [""] + detail(sel, day, state, cols - 4, now)
+    return lines, hits
+
+
+def detail(item, day, state, width, now):
+    """The selected item in full: when, where, description, link."""
+    if item is None:
+        allday, timed = day_items(state, day)
+        n = len(allday) + len(timed)
+        return ["", f"{rgb(FG, True)}{day:%A, %d %B}{R}", "",
+                f"{rgb(MUTED)}{n} item{'s' if n != 1 else ''}{R}" if n else f"{rgb(MUTED)}Nothing planned.{R}",
+                "", f"{rgb(FAINT)}a  add an event on this day{R}"]
+    color = SP if is_sp(item) else ACCENT if item["kind"] == "ev" else MUTED
+    kind = {"ev": item.get("cal", "Event"), "rem": "Reminder", "note": "SlidePlate video"}[item["kind"]]
+    if is_sp(item) and item["kind"] != "note":
+        kind += " · SlidePlate"
+    out = ["", f"{rgb(color, True)}{kind.upper()}{R}", ""]
+    out += [f"{rgb(FG, True)}{l}{R}" for l in wrap(item["title"], width)]
+    out.append("")
+    if item["kind"] == "rem":
+        when = f"{item['due']:%a %d %b}" + ("" if item["all_day"] else f" {item['due']:%H:%M}") if item["due"] else "no date"
+        due, c = due_label(item, now)
+        out.append(f"{rgb(c if c == RED else MUTED)}due {when}{R}")
+    elif item["kind"] == "note":
+        out.append(f"{rgb(MUTED)}{item['start']:%A %d %B}{R}")
+    else:
+        last = (item["end"] - dt.timedelta(seconds=1)).date()
+        if item["all_day"]:
+            when = f"{item['start']:%a %d %b}" + (f" – {last:%a %d %b}" if last != item["start"].date() else "") + " · all day"
+        else:
+            when = f"{item['start']:%a %d %b} · {span(item)}"
+        out.append(f"{rgb(MUTED)}{when}{R}")
+        if item["where"]:
+            out += [f"{rgb(FAINT)}{l}{R}" for l in wrap(item["where"], width)]
+    desc = clean(item.get("desc", ""))
+    link = item_link(item)
+    if desc:
+        out.append("")
+        out += [f"{rgb(FG)}{l}{R}" for l in wrap(LINK.sub("", desc).strip() or desc, width)][:18]
+    out.append("")
+    if link and link.startswith("obsidian://"):
+        target = urllib.parse.unquote(link.split("file=")[-1].split("&")[0])
+        out.append(f"{rgb(SP if is_sp(item) else ACCENT)}↗ enter  open in Obsidian{R}")
+        out += [f"{rgb(FAINT)}{l}{R}" for l in wrap(target, width)]
+    elif link:
+        out.append(f"{rgb(ACCENT)}↗ enter  open {short(re.sub(r'^https?://', '', link), width - 13)}{R}")
+    if item["kind"] == "rem":
+        out.append(f"{rgb(FAINT)}space  mark done{R}")
+    return out
+
+
+def prompt(label, hint=""):
+    """Read one line at the bottom of the popup (cbreak mode). None on escape."""
+    size = os.get_terminal_size()
+    buf = ""
+    while True:
+        sys.stdout.write(f"\033[{size.lines};1H\033[2K  {rgb(ACCENT, True)}{label}{R} {buf}"
+                         f"{rgb(FAINT)}{'' if buf else hint}{R}\033[?25h")
+        if not buf and hint:
+            sys.stdout.write(f"\033[{size.lines};{4 + len(label)}H")
+        sys.stdout.flush()
+        ch = os.read(sys.stdin.fileno(), 64).decode(errors="ignore")
+        if ch.startswith("\033"):
+            if ch == "\033":
+                sys.stdout.write("\033[?25l")
+                return None
+            continue
+        for c in ch:
+            if c in "\r\n":
+                sys.stdout.write("\033[?25l")
+                return buf
+            if c in "\x7f\b":
+                buf = buf[:-1]
+            elif c == "\x15":  # ctrl-u
+                buf = ""
+            elif c.isprintable():
+                buf += c
 
 
 # ── waybar ─────────────────────────────────────────────
@@ -630,11 +1140,82 @@ def selectable(columns):
 
 
 def open_link(item):
-    url = item.get("link") or ("https://calendar.google.com" if item["kind"] == "ev" else None)
+    url = item_link(item)
     if url:
         subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)
     return bool(url)
+
+
+def calendar_key(data, state, week, hits, view):
+    """Keys and clicks on the calendar tab. True closes the popup."""
+    import threading
+
+    sel, day = state["cal_sel"], state["cal_day"]
+    mouse = list(re.finditer(r"\033\[<(\d+);(\d+);(\d+)([Mm])", data))
+    for m in mouse:
+        b, x, y, kind = int(m[1]), int(m[2]) - 1, int(m[3]) - 1, m[4]
+        if b & 32 or kind != "M":
+            continue
+        if b in (64, 65):
+            state["cal_day"] = day + dt.timedelta(days=7 if b == 65 else -7)
+            state["cal_sel"] = None
+            continue
+        hit = next((h for h in hits if h[0] == y and h[1] <= x < h[2]), None)
+        if hit and b == 0:
+            d, item = hit[3]
+            if item is sel:
+                return open_link(item)
+            state["cal_day"], state["cal_sel"] = d, item
+    if mouse:
+        return False
+
+    def move_day(n):
+        state["cal_day"] = day + dt.timedelta(days=n)
+        state["cal_sel"] = None
+
+    if data in ("q", "\033"):
+        return True
+    if data in ("1", "\t"):
+        state["tab"] = "home"
+    elif data in ("h", "\033[D"):
+        move_day(-1)
+    elif data in ("l", "\033[C"):
+        move_day(1)
+    elif data in ("[", "\033[5~", "H"):
+        move_day(-7)
+    elif data in ("]", "\033[6~", "L"):
+        move_day(7)
+    elif data == "t":
+        state["cal_day"], state["cal_sel"] = dt.date.today(), None
+    elif data in ("j", "\033[B", "k", "\033[A"):
+        step = 1 if data in ("j", "\033[B") else -1
+        on_day = [i for d, i in week if d == day]
+        if on_day:
+            i = next((n for n, it in enumerate(on_day) if it is sel), -1 if step > 0 else len(on_day))
+            state["cal_sel"] = on_day[max(0, min(len(on_day) - 1, i + step))]
+    elif data in ("\r", "\n", "o"):
+        if sel is not None:
+            return open_link(sel)
+        on_day = [i for d, i in week if d == day]
+        state["cal_sel"] = on_day[0] if on_day else None
+    elif data in (" ", "x") and sel is not None and sel["kind"] == "rem":
+        state["finish"](sel)
+        state["cal_sel"] = None
+    elif data == "a":
+        text = prompt(f"new event on {day:%a %d %b}:", "title @ 14:00-15:00 | description   (no @ = all day, @ fri 9:00 for another day)")
+        if text and text.strip():
+            try:
+                ev = add_event(text, day)
+                state["week_events"].append(ev)
+                state["events"].append(ev)
+                state["cal_day"], state["cal_sel"] = ev["start"].date(), ev
+                state["msg"] = f"added {ev['title']}"
+            except Exception as e:
+                state["msg"] = f"not added: {e}"
+    elif data == "r":
+        state["reload"]()
+    return False
 
 
 def cmd_popup():
@@ -646,7 +1227,13 @@ def cmd_popup():
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     wake_r, wake_w = os.pipe()  # background work pokes this to trigger a redraw
-    state = {"events": [], "reminders": [], "error": "", "rem_status": "", "done": set()}
+    today = dt.date.today()
+    state = {"events": [], "reminders": [], "error": "", "rem_status": "", "done": set(),
+             "tab": "home", "cal_day": today, "cal_sel": None, "week_events": [], "range": None,
+             "notes": [], "msg": ""}
+    TAB = CACHE / "tab"
+    if TAB.exists() and TAB.read_text().strip() in ("home", "cal"):
+        state["tab"] = TAB.read_text().strip()  # SUPER+K opens on the tab used last
 
     def load_events(force=False):
         try:
@@ -654,6 +1241,22 @@ def cmd_popup():
             state["error"] = "" if calendars() else f"No calendars configured — add them to {CONF}"
         except Exception as e:
             state["error"] = f"Could not load calendar: {e}"
+        state["range"] = None
+        state["notes"] = vault_notes()
+
+    def load_week():
+        """Events around the week on screen, refetched when the view leaves the loaded range."""
+        monday = state["cal_day"] - dt.timedelta(days=state["cal_day"].weekday())
+        rng = state["range"]
+        if rng and rng[0] <= monday and monday + dt.timedelta(days=7) <= rng[1]:
+            return
+        start = monday - dt.timedelta(days=7)
+        try:
+            state["week_events"] = events(35, keep_past=True,
+                                          start=dt.datetime.combine(start, dt.time()).astimezone()) if calendars() else []
+        except Exception as e:
+            state["error"] = f"Could not load calendar: {e}"
+        state["range"] = (start, start + dt.timedelta(days=35))
 
     def load_reminders(force=False):
         state["reminders"] = reminders(state["done"])
@@ -690,6 +1293,8 @@ def cmd_popup():
             os.write(wake_w, b"x")
         threading.Thread(target=work, daemon=True).start()
 
+    state["finish"], state["reload"] = finish, lambda: (load_events(True), load_reminders(True))
+    state["wake"] = lambda: os.write(wake_w, b"x")
     load_events()
     load_reminders()
     selected = hovered = None
@@ -708,6 +1313,33 @@ def cmd_popup():
         sys.stdout.write("\033[?25l\033[?1003h\033[?1006h")  # hide cursor, SGR mouse incl. motion
         while True:
             size = os.get_terminal_size()
+            height = size.lines - 2
+            if state["tab"] == "cal":
+                load_week()
+                view = {**state, "events": state["week_events"]}
+                monday = state["cal_day"] - dt.timedelta(days=state["cal_day"].weekday())
+                week = week_items(view, monday)
+                if state["cal_sel"] is not None and not any(i is state["cal_sel"] for _, i in week):
+                    key = lambda i: i.get("id") or i.get("link") or (i["title"], i.get("start"))
+                    old = key(state["cal_sel"])
+                    state["cal_sel"] = next((i for _, i in week if key(i) == old), None)
+                lines, hits = week_view(view, size.columns, height)
+                body = [l for l in lines[:height]] + [""] * max(0, height - len(lines))
+                msg = f"{rgb(YELLOW)}{state['msg']}{R}  " if state["msg"] else ""
+                hint = (f"  {msg}{rgb(FAINT)}1 overview  {R}{rgb(ACCENT, True)}2 calendar{R}{rgb(FAINT)}  ·  "
+                        f"←→ day · ↑↓ item · [ ] week · t today · enter open · a add · q close{R}")
+                sys.stdout.write("\033[H\033[2J" + "\n".join(body) + f"\033[{size.lines};1H" + hint)
+                sys.stdout.flush()
+                ready = select.select([fd, wake_r], [], [], 30)[0]
+                if wake_r in ready:
+                    os.read(wake_r, 64)
+                if fd not in ready:
+                    continue
+                data = os.read(fd, 64).decode(errors="ignore")
+                state["msg"] = ""
+                if calendar_key(data, state, week, hits, view):
+                    break
+                continue
             columns = layout(state, size.columns)
             items = selectable(columns)
             if selected is not None and not any(i is selected for i in items):
@@ -716,14 +1348,13 @@ def cmd_popup():
                 selected = next((i for i in items if (i.get("id") or (i["title"], i.get("start"))) == key), None)
             if hovered is not None and not any(i is hovered for i in items):
                 hovered = None
-            height = size.lines - 2
             if len(offsets) != len(columns):
                 offsets = [0] * len(columns)
             offsets = [follow(lines, selected, off, height) for (lines, _, _), off in zip(columns, offsets)]
             rows = compose(columns, offsets, height)
             body = paint(rows, selected, hovered, height)
-            hint = (f"  {rgb(FAINT)}↑↓ select · enter open · space done · "
-                    f"r refresh · q close{R}")
+            hint = (f"  {rgb(ACCENT, True)}1 overview{R}{rgb(FAINT)}  2 calendar  ·  "
+                    f"↑↓ select · enter open · space done · r refresh · q close{R}")
             sys.stdout.write("\033[H\033[2J" + "\n".join(body) + f"\033[{size.lines};1H" + hint)
             sys.stdout.flush()
 
@@ -762,7 +1393,10 @@ def cmd_popup():
 
             if data in ("q", "\033"):
                 break
-            if data in ("j", "\033[B", "k", "\033[A", "\t") and items:
+            if data in ("2", "\t"):
+                state["tab"] = "cal"
+                continue
+            if data in ("j", "\033[B", "k", "\033[A") and items:
                 i = next((n for n, it in enumerate(items) if it is selected), -1)
                 step = -1 if data in ("k", "\033[A") else 1
                 selected = items[(i + step) % len(items)] if i >= 0 or step > 0 else items[-1]
@@ -782,6 +1416,8 @@ def cmd_popup():
                 load_events(force=True)
                 load_reminders(force=True)
     finally:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        TAB.write_text(state["tab"])
         sys.stdout.write("\033[?1003l\033[?1006l\033[?25h\033]22;default\033\\")
         sys.stdout.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -824,4 +1460,5 @@ if __name__ == "__main__":
     if arg == "toggle":
         cmd_toggle(big="--big" in sys.argv)
     else:
-        {"waybar": cmd_waybar, "popup": cmd_popup, "lock": cmd_lock}.get(arg, cmd_waybar)()
+        {"waybar": cmd_waybar, "popup": cmd_popup, "lock": cmd_lock,
+         "add": cmd_add, "auth": cmd_auth}.get(arg, cmd_waybar)()
