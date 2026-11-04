@@ -182,6 +182,34 @@
     border-radius: 6px;
 }
 
+/* ── right: volume slider drawer ─────────────────────── */
+
+#pulseaudio-slider {
+    padding: 0 4px 0 8px;
+}
+
+#pulseaudio-slider slider {
+    min-height: 0;
+    min-width: 0;
+    opacity: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+}
+
+#pulseaudio-slider trough {
+    min-width: 90px;
+    min-height: 6px;
+    border-radius: 3px;
+    background: @surface-hover;
+}
+
+#pulseaudio-slider highlight {
+    min-height: 6px;
+    border-radius: 3px;
+    background: @accent;
+}
+
 /* ── right: claude usage (session · week) ───────────── */
 
 #custom-claude {

@@ -22,7 +22,7 @@
 
     "group/right": {
         "orientation": "horizontal",
-        "modules": ["group/tray", "custom/claude", "cpu", "memory", "idle_inhibitor", "pulseaudio", "network", "bluetooth", "battery"]
+        "modules": ["group/tray", "custom/claude", "cpu", "memory", "idle_inhibitor", "group/audio", "network", "bluetooth", "battery"]
     },
 
     "group/tray": {
@@ -33,6 +33,16 @@
             "children-class": "tray-child"
         },
         "modules": ["custom/tray-toggle", "tray"]
+    },
+
+    "group/audio": {
+        "orientation": "inherit",
+        "drawer": {
+            "transition-duration": 350,
+            "transition-left-to-right": false,
+            "children-class": "audio-child"
+        },
+        "modules": ["pulseaudio", "pulseaudio/slider"]
     },
 
     // ── left ────────────────────────────────────────────
@@ -165,6 +175,12 @@
             "headset":   "󰋎",
             "default":   ["󰕿", "󰖀", "󰕾"]
         }
+    },
+
+    "pulseaudio/slider": {
+        "min": 0,
+        "max": 100,
+        "orientation": "horizontal"
     },
 
     "network": {
