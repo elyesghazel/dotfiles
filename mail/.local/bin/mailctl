@@ -385,7 +385,10 @@ def build_message(acc, args, m=None):
     msg["Message-ID"] = make_msgid(domain=acc["user"].split("@")[1])
     body = args.body if args.body is not None else Path(args.body_file).read_text() if args.body_file else ""
     sig = signature(acc, args.sig)
-    if sig:
+    if getattr(args, "html_file", None):  # full HTML mail, body = plain-text fallback, no signature
+        msg.set_content(body)
+        msg.add_alternative(Path(args.html_file).read_text(), subtype="html")
+    elif sig:
         txt, sig_html, logo = sig
         msg.set_content(body.rstrip() + "\n\n-- \n" + txt)
         paras = "".join(
@@ -456,7 +459,7 @@ def cmd_send(cfg, args):
         print()
         print(msg.get_body(("plain",)).get_content())
         if msg.get_body(("html",)):
-            print("(+ HTML version with the signature logo)")
+            print(f"(+ HTML version: {args.html_file})" if args.html_file else "(+ HTML version with the signature logo)")
         return
 
     ctx = ssl.create_default_context()
@@ -519,6 +522,7 @@ def main():
     p.add_argument("--subject")
     p.add_argument("--body")
     p.add_argument("--body-file")
+    p.add_argument("--html-file", help="send this HTML as the html part (body = plain-text fallback, no signature)")
     p.add_argument("--attach", action="append")
     p.add_argument("--reply", help="UID or FOLDER:UID to reply to (threads it, fills Re: subject)")
     p.add_argument("--sig", default="de", help="signature language: de, en or none (default de)")
