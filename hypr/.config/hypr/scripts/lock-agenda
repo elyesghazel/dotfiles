@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Agenda + reminders for the right column of hyprlock.conf, as pango markup.
+
+Reads today.elyesghazel.ch with the today desktop app's device key, so the lock screen shows
+every Google calendar (School, Work, Training, Personal, SlidePlate) without per-machine iCal
+links. The last good answer is cached; offline the cache is shown with its age. Without a
+device key it falls back to the old `gcal lock`.
+"""
+import datetime as dt
+import json
+import os
+import sys
+import time
+import urllib.request
+from html import escape
+from pathlib import Path
+
+URL = "https://today.elyesghazel.ch/api/state"
+KEY = Path.home() / ".config/ch.elyesghazel.today/device-key"
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "lock-agenda.json"
+
+# eg. design tokens (design.elyesghazel.ch/tokens.css, dark)
+INK, BODY, DIM, FAINT, RULE = "#ffffff", "#dcdcdc", "#a6a6a6", "#8a8a8a", "#333333"
+ACCENT = "#c47070"
+
+LINES = 22      # fixed height: hyprlock centres the label, so this keeps its top edge still
+MAX_EVENTS = 8
+MAX_REMS = 4
+WIDTH = 34      # title chars
+
+
+def fetch():
+    key = KEY.read_text().strip()
+    req = urllib.request.Request(URL, headers={"Cookie": f"today_device={key}", "User-Agent": "eg-lock/1"})
+    with urllib.request.urlopen(req, timeout=8) as r:
+        d = json.load(r)
+    keep = {"calendars": d.get("calendars", []), "events": d.get("events", []),
+            "reminders": (d.get("reminders") or {}).get("items", []), "at": time.time()}
+    CACHE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CACHE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(keep))
+    tmp.chmod(0o600)
+    tmp.replace(CACHE)
+    return keep
+
+
+def load():
+    try:
+        return fetch(), False
+    except Exception:
+        try:
+            return json.loads(CACHE.read_text()), True
+        except Exception:
+            return None, True
+
+
+def short(s, n):
+    s = " ".join(s.split())
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def c(color, s):
+    return f"<span foreground='{color}'>{s}</span>"
+
+
+def label(s):
+    return c(FAINT, "//") + " " + f"<span foreground='{DIM}' letter_spacing='2048'>{s.upper()}</span>"
+
+
+def day_name(d, today):
+    if d == today:
+        return "today"
+    if d == today + dt.timedelta(days=1):
+        return "tomorrow"
+    return d.strftime("%a %d.%m").lower()
+
+
+def main():
+    if not KEY.exists():
+        gcal = Path.home() / ".config/waybar/scripts/gcal"
+        os.execv(str(gcal), [str(gcal), "lock"])
+
+    data, stale = load()
+    now = dt.datetime.now().astimezone()
+    today = now.date()
+    lines = []
+    if data is None:
+        lines += [label("agenda"), c(FAINT, "today.elyesghazel.ch unreachable")]
+    else:
+        colors = {cal["id"]: cal.get("color") or DIM for cal in data["calendars"]}
+        days = {}
+        for e in data["events"]:
+            s, en = dt.datetime.fromisoformat(e["start"]), dt.datetime.fromisoformat(e["end"])
+            if e["allDay"]:
+                s, en = s.replace(tzinfo=now.tzinfo), en.replace(tzinfo=now.tzinfo)
+            if en <= now or s.date() > today + dt.timedelta(days=2):
+                continue
+            days.setdefault(max(s.date(), today), []).append((e, s, en))
+
+        shown = 0
+        for d in sorted(days):
+            if shown >= MAX_EVENTS:
+                break
+            if lines:
+                lines.append("")
+            lines.append(label(day_name(d, today)))
+            for e, s, en in sorted(days[d], key=lambda x: (not x[0]["allDay"], x[1])):
+                if shown >= MAX_EVENTS:
+                    break
+                bar = c(colors.get(e["cal"], DIM), "▍")
+                live = not e["allDay"] and s <= now < en
+                if e["allDay"]:
+                    when = c(FAINT, "all day")
+                elif live:
+                    when = c(ACCENT, "now    ")
+                else:
+                    when = c(DIM, s.strftime("%H:%M") + "  ")
+                title = escape(short(e["title"], WIDTH))
+                lines.append(f"{bar} {when}  {c(INK if live else BODY, title)}")
+                shown += 1
+        if not shown:
+            lines += [label("agenda"), c(FAINT, "nothing in the next 3 days")]
+
+        rems = sorted((r for r in data["reminders"] if r.get("due")), key=lambda r: r["due"])
+        rems += [r for r in data["reminders"] if not r.get("due")]
+        if rems:
+            overdue = sum(1 for r in rems if r.get("due") and dt.datetime.fromisoformat(r["due"]) < now)
+            head = label("reminders")
+            if overdue:
+                head += "  " + c(ACCENT, f"{overdue} overdue")
+            lines += ["", head]
+            for r in rems[:MAX_REMS]:
+                due = ""
+                if r.get("due"):
+                    t = dt.datetime.fromisoformat(r["due"])
+                    late = t < now
+                    txt = day_name(t.date(), today) if t.date() != today else t.strftime("%H:%M")
+                    due = "  " + c(ACCENT if late else FAINT, txt)
+                lines.append(c(FAINT, "○") + "  " + c(BODY, escape(short(r["title"], WIDTH - 6))) + due)
+            if len(rems) > MAX_REMS:
+                lines.append(c(FAINT, f"   +{len(rems) - MAX_REMS} more"))
+
+        if stale:
+            age = dt.datetime.fromtimestamp(data["at"]).strftime("%H:%M")
+            lines += ["", c(FAINT, f"offline · as of {age}")]
+
+    lines = lines[:LINES]
+    # hyprlock trims trailing blank lines and centres the label, so the padding ends on an
+    # invisible full-width line: fixed height and width keep the column from jumping around
+    lines += [""] * (LINES - 1 - len(lines)) + ["<span alpha='1%'>" + "." * (WIDTH + 12) + "</span>"]
+    print("\n".join(lines))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:  # never leave the lock screen with a traceback
+        print(c(FAINT, "agenda error: " + escape(type(e).__name__)))
+        sys.exit(0)
