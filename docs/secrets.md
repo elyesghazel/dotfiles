@@ -115,3 +115,20 @@ excludes one machine from a `*` line - used where the server needs its own varia
   running in that shell. Unlock only when syncing, `bw lock` after.
 - Values never appear in output and reach `bw` on stdin, not in `argv` (so not in `ps`).
 - Files are written atomically with mode 600, parent dirs 700.
+
+## Second vault (server-only items)
+
+A 6th manifest column names the vault. Default `me` = your own account, unlocked with
+`secrets-unlock`. Another name is a profile in `~/.config/secrets-vaults/<name>.env`
+(outside the stowed dir, never committed):
+
+```
+BW_APPDATA=<bw CLI data dir of that account, already logged in>
+BW_PASSWORD_FILE=<file with its master password>
+BW_ORG=<organization id>
+```
+
+Such a vault unlocks itself, so `secrets pull` works for its items without `secrets-unlock`.
+Its items live in organization collections `Secrets/<group>` instead of folders. `ref:` only
+resolves inside the same vault, so items there store shared values (ntfy tokens) as plain
+fields - after rotating one, `secrets push` the affected items again.
