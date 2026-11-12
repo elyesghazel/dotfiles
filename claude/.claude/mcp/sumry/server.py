@@ -222,10 +222,10 @@ TOOLS = [
     },
     {
         "name": "sumry_safe_to_spend",
-        "description": "How much can be spent before the next planned income: balance minus planned expenses (and, for one account, transfers out) due until then, with a per-day figure. Use for 'can I afford X'.",
+        "description": "How much can be spent before the next planned income: balance of the spending accounts (savings flagged off are left out) minus planned expenses and transfers into savings due until then, with a per-day figure. Use for 'can I afford X'.",
         "inputSchema": {
             "type": "object",
-            "properties": {"account": {**_ACCOUNT, "description": "Limit to one account. Default: all accounts."}},
+            "properties": {"account": {**_ACCOUNT, "description": "Limit to one account. Default: every account that counts toward safe-to-spend."}},
         },
         "handler": tools.safe_to_spend,
     },

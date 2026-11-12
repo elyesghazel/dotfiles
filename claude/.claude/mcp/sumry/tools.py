@@ -520,7 +520,12 @@ def safe_to_spend(client: SumryClient, account=None, **_) -> str:
     target = resolve_account(client, account) if account else None
     params = {"accountId": target["id"]} if target else None
     s = client.get("/api/planned/safe-to-spend", params=params) or {}
-    scope = f"**{target['accountName']}**" if target else "all accounts"
+    if target:
+        scope = f"**{target['accountName']}**"
+    else:
+        ids = set(s.get("accountIds") or [])
+        names = [a["accountName"] for a in (client.get("/api/users/accounts/") or []) if a.get("id") in ids]
+        scope = ", ".join(names) if names else "spending accounts"
     committed = (s.get("upcomingExpenses") or 0) + (s.get("upcomingTransfersOut") or 0)
     lines = [
         f"## Safe to spend: {money(s.get('safeToSpend'))} {CURRENCY}",
