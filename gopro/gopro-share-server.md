@@ -49,6 +49,18 @@ originals into `<token>/4k/` from `mycloud:` directly (never route those through
 desktop), writes `.meta.json`, and renders `index.html`. Needs `python3`, `ffmpeg`
 and `rclone` on the host.
 
+The recipient gallery uses the Lab's restrained monochrome styling, responsive preview
+cards, light/dark themes, clip/runtime/download-size summaries, and a local-time expiry
+countdown. Stream-copy and original downloads remain separate. It is self-contained:
+no external scripts, fonts, analytics or stylesheets are requested. The audience badge
+says **Anyone with the link**, not account-approved sharing; GitHub roles are unchanged.
+
+To refresh an existing collection without touching its media or expiry, render its
+`.meta.json` to a temporary HTML file beside `index.html`, then atomically replace the
+index. The generator remains a single Python file, so the existing desktop rsync command
+still deploys it. Keep the desktop dotfiles checkout updated before running `gopro share`
+so an older local renderer does not overwrite the server's new design.
+
 Two things it deliberately does **once per share, not once per clip**: the archive
 listing (`rclone lsf -R` is a full network round trip) and the staging transfer.
 `--transfers` only parallelises across *files*, so one `rclone copy --files-from`
