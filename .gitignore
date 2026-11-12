@@ -18,3 +18,4 @@ claude/.claude/skills/synced/
 # Tracking it meant a fresh `stow fish` overwrote the local color scheme with another
 # machine's snapshot. The file stays on every box, it just is not shared.
 fish/.config/fish/fish_variables
+__pycache__/
