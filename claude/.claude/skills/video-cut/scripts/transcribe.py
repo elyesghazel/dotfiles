@@ -37,7 +37,7 @@ for f in files:
     if not os.path.exists(w) or os.path.getsize(w) < 1024:
         tmp = w + ".part"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f, "-vn", "-ac", "1",
-                        "-ar", "16000", "-c:a", "pcm_s16le", tmp], check=True)
+                        "-ar", "16000", "-c:a", "pcm_s16le", "-f", "wav", tmp], check=True)
         os.replace(tmp, w)
     segs, info = m.transcribe(w, vad_filter=True,
                               vad_parameters=dict(min_silence_duration_ms=350),
