@@ -19,10 +19,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import tools  # noqa: E402
+import tools_more  # noqa: E402
 from client import SumryClient, SumryError  # noqa: E402
 
 PROTOCOL_VERSION = "2025-06-18"
-SERVER_INFO = {"name": "sumry", "version": "1.0.0"}
+SERVER_INFO = {"name": "sumry", "version": "1.1.0"}
 
 _client: SumryClient | None = None
 
@@ -295,6 +296,139 @@ TOOLS = [
             "required": ["plan_id"],
         },
         "handler": tools.delete_plan,
+    },
+    {
+        "name": "sumry_import",
+        "description": "Preview a bank statement file (PostFinance PDF, camt.053 XML or CSV) on this machine for an account. Nothing is booked. Returns an import id, whether opening + rows = closing, the rows already logged (matched by amount within 3 days, splits like top-up + fee) and the new rows, plus the account's entries from that period that matched nothing, so the open rows can be checked by hand. IBANs arrive masked. Then sumry_import_commit.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {"type": "string", "description": "Path to the statement file, e.g. ~/inbox/kontoauszug-oktober.pdf."},
+                "account": _ACCOUNT,
+            },
+            "required": ["file", "account"],
+        },
+        "handler": tools_more.import_preview,
+    },
+    {
+        "name": "sumry_import_commit",
+        "description": "Book rows from a sumry_import preview. Default: every new (unmatched) row. Pass lines to book exactly those, categories to set or override a row's category, and default categories for rows still without one (rows without any category are skipped). Show Elyes what will be booked first.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "import_id": {"type": "string", "description": "The id sumry_import printed."},
+                "lines": {"type": "array", "items": {"type": "integer"}, "description": "Line numbers to book. Omit for all new rows."},
+                "categories": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Line number -> exact category label."},
+                "default_expense_category": {"type": "string"},
+                "default_income_category": {"type": "string"},
+            },
+            "required": ["import_id"],
+        },
+        "handler": tools_more.import_commit,
+    },
+    {
+        "name": "sumry_needs_you",
+        "description": "The Today inbox: overdue planned items, budgets over their limit, entries without a category, accounts not checked against the bank for 14+ days (or never), and the month-close note on the 1st-3rd. Use for 'what needs my attention' or a morning check.",
+        "inputSchema": {"type": "object", "properties": {}},
+        "handler": tools_more.needs_you,
+    },
+    {
+        "name": "sumry_plan_skip",
+        "description": "Skip a plan's next due occurrence (or the one on date) without booking it, e.g. a subscription that was not charged this month.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "8-char id, full UUID, or the plan's name."},
+                "date": {"type": "string", "description": "YYYY-MM-DD of the occurrence. Default: the next due one."},
+            },
+            "required": ["plan_id"],
+        },
+        "handler": tools_more.plan_skip,
+    },
+    {
+        "name": "sumry_plan_postpone",
+        "description": "Move a plan's next due occurrence (or the one on date) to another day.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "8-char id, full UUID, or the plan's name."},
+                "to": {"type": "string", "description": "YYYY-MM-DD it should move to."},
+                "date": {"type": "string", "description": "YYYY-MM-DD of the occurrence. Default: the next due one."},
+            },
+            "required": ["plan_id", "to"],
+        },
+        "handler": tools_more.plan_postpone,
+    },
+    {
+        "name": "sumry_recategorise",
+        "description": "Set one category on many entries at once: by transaction_ids, or by a filter (search text in the note, account, since/until, uncategorised_only). A filter runs as a dry run first unless dry_run=false. Transfers are never touched.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "description": "Exact category label."},
+                "transaction_ids": {"type": "array", "items": {"type": "string"}, "description": "8-char ids or UUIDs."},
+                "search": {"type": "string", "description": "Substring of the note, e.g. 'migi'."},
+                "account": _ACCOUNT,
+                "since": {"type": "string", "description": "YYYY-MM-DD"},
+                "until": {"type": "string", "description": "YYYY-MM-DD"},
+                "uncategorised_only": {"type": "boolean"},
+                "dry_run": {"type": "boolean", "description": "Default true for filters, false for explicit ids."},
+            },
+            "required": ["category"],
+        },
+        "handler": tools_more.recategorise,
+    },
+    {
+        "name": "sumry_rules",
+        "description": "Auto-categorisation rules. action=list (default); test (which rule catches text); create (pattern + category, match_type CONTAINS/STARTS_WITH/EQUALS/REGEX, optional account/priority); delete/disable/enable (rule_id); apply (run rules over existing entries, dry_run default true, optional since/until).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "test", "create", "delete", "disable", "enable", "apply"]},
+                "pattern": {"type": "string"},
+                "category": {"type": "string"},
+                "match_type": {"type": "string", "enum": ["CONTAINS", "STARTS_WITH", "EQUALS", "REGEX"]},
+                "account": _ACCOUNT,
+                "priority": {"type": "integer"},
+                "rule_id": {"type": "string"},
+                "text": {"type": "string", "description": "For test: a booking text, e.g. 'COOP-2848 ZH SIHLCITY'."},
+                "dry_run": {"type": "boolean"},
+                "since": {"type": "string"},
+                "until": {"type": "string"},
+            },
+        },
+        "handler": tools_more.rules,
+    },
+    {
+        "name": "sumry_account",
+        "description": "One account in detail: balance, whether it counts toward safe-to-spend, when it was last checked against the bank, in/out this month, all-time cash flow and the latest entries.",
+        "inputSchema": {"type": "object", "properties": {"account": _ACCOUNT}, "required": ["account"]},
+        "handler": tools_more.account_detail,
+    },
+    {
+        "name": "sumry_goals",
+        "description": "Savings goals with saved vs target, percentage, target date, what is needed per month and whether it is on track.",
+        "inputSchema": {"type": "object", "properties": {"include_inactive": {"type": "boolean"}}},
+        "handler": tools_more.goals,
+    },
+    {
+        "name": "sumry_statement",
+        "description": "The monthly statement: in/out/net, savings rate, where it went, budgets, largest entries. send=true emails it instead (to Elyes' address unless to is given).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "month": {"type": "string", "description": "YYYY-MM. Default: last month."},
+                "send": {"type": "boolean"},
+                "to": {"type": "string", "description": "Email address for send=true."},
+            },
+        },
+        "handler": tools_more.statement,
+    },
+    {
+        "name": "sumry_subscriptions",
+        "description": "Recurring payments Sumry detected from the history: interval, amount, monthly equivalent, next expected date, and whether a plan exists for it. Totals per month and year.",
+        "inputSchema": {"type": "object", "properties": {"include_inactive": {"type": "boolean"}}},
+        "handler": tools_more.subscriptions,
     },
 ]
 
