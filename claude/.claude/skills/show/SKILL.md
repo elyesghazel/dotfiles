@@ -15,8 +15,14 @@ show report.html --name server/audit --title "Security audit"        # one file 
 show clip.mp4 --name slideplate/clip --ttl 2d                        # any file, listed by nginx
 show --port 5173 --name sumry/staging --title "Sumry staging"        # proxy → sumry-staging.elyesghazel.tech
 show ls               # what is live
-show rm <path>        # take it down (e.g. show rm sumry/redesign)
+show rm <path>        # delete for good (files, route, direct grants)
 show ttl <path> 30d   # change the expiry of a live site (or `never`)
+show archive <path>   # take it offline, keep the files (restorable)
+show archived         # list the archive
+show restore <id|path> [new/path]   # bring it back (same sharing), optionally at a new path
+show purge <id|path>  # delete an archived site for good
+show mv <path> <new/path> [--title T]   # move a static site; grants move with it, old link breaks
+show title <path> "New title"
 ```
 
 It prints the URL. No ntfy note by default: put the link in your reply instead.
@@ -40,8 +46,10 @@ lab.elyesghazel.tech lists everything that is live.
   | reference material, a plan or overview he'll use for a while | `30d` |
   | something he explicitly wants to keep | `never` |
   Change it later with `show ttl <path> <ttl>` (e.g. he says "keep that" → `show ttl <path> never`).
-  He can also delete a site or change its expiry himself from the buttons on lab.elyesghazel.tech.
-  A cron runs `show gc` every 5 minutes. The domain is a 1-year GitHub Student Pack domain: anything
+  He manages everything himself from the **Manage ▾** dropdown on lab.elyesghazel.tech (signed in
+  with GitHub as admin): share, copy link, rename/move, keep for, archive, delete; plus an Archived
+  section with restore. A cron runs `show gc` every 5 minutes: **expired static sites are archived,
+  not deleted** (files kept 90 days, restorable), expired `--port` proxies are removed. The domain is a 1-year GitHub Student Pack domain: anything
   meant to last for years belongs on `.ch`. Permanent tools (like the ops dashboard at
   `ops.elyesghazel.ch`) are real services in `/opt/docker`, not `show` sites.
 - **Paths: always pass `--name` and group by what it belongs to.** Up to 4 segments of
