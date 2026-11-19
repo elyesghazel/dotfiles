@@ -61,7 +61,7 @@ DISK_MARGIN=$(( ${DISK_MARGIN_GB:-20} * 1024 * 1024 * 1024 ))
 AVAIL=$(df -B1 --output=avail "$SHARE_DIR" | tail -1)
 
 # --- pass 1: stream copies, posters, and pick the originals to stage -----------
-CLEAN=(); THUMB=(); SIZE=(); VW=(); VH=(); DUR=(); OSRC=(); OCLEAN=()
+CLEAN=(); THUMB=(); SIZE=(); VW=(); VH=(); DUR=(); SHOT=(); OSRC=(); OCLEAN=()
 planned=0
 for rel in "${CLIPS[@]}"; do
   src="$GOPRO_DIR/$rel"
@@ -75,6 +75,8 @@ for rel in "${CLIPS[@]}"; do
       -show_entries stream=width,height -show_entries format=duration \
       -of default=nw=1:nk=1 "$src" 2>/dev/null | paste -sd' ' -) || true
   : "${width:=0}" "${height:=0}" "${dur:=0}"
+  shot="$(ffprobe -v error -show_entries format_tags=creation_time \
+      -of default=nw=1:nk=1 "$src" 2>/dev/null | head -1)" || shot=""
 
   # Poster frame a little way in, to skip the black/shaky first frame -- but the
   # seek point has to come from the duration: seeking past the end of a short clip
@@ -103,7 +105,7 @@ for rel in "${CLIPS[@]}"; do
   fi
 
   CLEAN+=("$clean"); THUMB+=("$thumb"); SIZE+=("$(stat -c%s "$DIR/v/$clean")")
-  VW+=("$width"); VH+=("$height"); DUR+=("$dur"); OSRC+=("$osrc"); OCLEAN+=("$oclean")
+  VW+=("$width"); VH+=("$height"); DUR+=("$dur"); SHOT+=("$shot"); OSRC+=("$osrc"); OCLEAN+=("$oclean")
 done
 [[ ${#CLEAN[@]} -eq 0 ]] && { rm -rf "$DIR"; echo "nothing staged" >&2; exit 1; }
 
@@ -137,11 +139,12 @@ for i in "${!CLEAN[@]}"; do
             -of default=nw=1:nk=1 "$DIR/4k/$oname" 2>/dev/null | head -1)"; : "${oh:=0}"
   fi
   ITEMS+=("$(python3 - "${CLEAN[$i]}" "${THUMB[$i]}" "${SIZE[$i]}" "${VW[$i]}" "${VH[$i]}" \
-                      "${DUR[$i]}" "$oname" "$osize" "$oh" <<'PY'
+                      "${DUR[$i]}" "$oname" "$osize" "$oh" "${SHOT[$i]}" <<'PY'
 import json,sys
-c,t,s,w,h,d,on,os_,oh = sys.argv[1:10]
+c,t,s,w,h,d,on,os_,oh,shot = sys.argv[1:11]
 print(json.dumps({"file":c,"thumb":t,"size":int(s),"w":int(w),"h":int(h),
-                  "dur":float(d or 0),"orig":on,"origSize":int(os_),"origH":int(oh or 0)}))
+                  "dur":float(d or 0),"orig":on,"origSize":int(os_),"origH":int(oh or 0),
+                  "shot":shot}))
 PY
 )")
 done
@@ -151,7 +154,7 @@ done
   printf '%s' "$(IFS=,; echo "${ITEMS[*]}")"
   printf ']}' ; } > "$DIR/.meta.json"
 
-python3 "$(dirname "$(readlink -f "$0")")/gopro-share-page.py" "$DIR/.meta.json" > "$DIR/index.html"
+python3 "$(dirname "$(readlink -f "$0")")/gopro-share-page.py" "$DIR/.meta.json" "$HOST" > "$DIR/index.html"
 
 # Only the dirs that exist: a --no-4k share has no 4k/, and `du` failing on a
 # missing path takes the whole script down under `set -o pipefail`.

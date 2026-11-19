@@ -1,16 +1,28 @@
 #!/usr/bin/env python3
-"""Render a self-contained GoPro gallery; streaming and downloads keep separate URLs."""
+"""Render a share collection's .meta.json as its index.html.
+
+Wears the shared elyesghazel design: tokens, components, theme and fonts are served
+same-origin under /_eg/ (the design site's public/ dir, mounted into the share
+container), so a page never depends on another host being up.
+
+Usage: gopro-share-page.py <dir>/.meta.json [host]  > <dir>/index.html
+Streaming (v/) and forced downloads (dl/v/, dl/4k/) keep separate URLs.
+"""
 import html
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from string import Template
 from urllib.parse import quote
 
+EG = "/_eg"
+
 
 def human(size):
+    size = float(size or 0)
     if not size:
-        return "—"
+        return "-"
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if size < 1024 or unit == "TB":
             return f"{size:.0f} {unit}" if unit in ("B", "KB") else f"{size:.1f} {unit}"
@@ -20,63 +32,122 @@ def human(size):
 def label(height):
     height = int(height or 0)
     if height >= 2100:
-        return "4K"
+        return "4k"
     if height >= 1400:
         return "1440p"
     if height >= 1000:
         return "1080p"
-    return f"{height}p" if height else "Original"
+    return f"{height}p" if height else "original"
 
 
 def clock(seconds):
-    seconds = int(seconds or 0)
+    seconds = int(round(seconds or 0))
     hours, remainder = divmod(seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes}:{seconds:02d}"
 
 
-DOWNLOAD_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v10m-4-4 4 4 4-4M3 13v4h14v-4"/></svg>'
-PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg>'
+def shot_date(value):
+    """ffprobe creation_time (ISO) -> datetime, or None."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
-def render(meta):
-    items = meta["items"]
+def day(dt):
+    return f"{dt.day} {dt.strftime('%b').lower()} {dt.year}"
+
+
+def span(dates):
+    if not dates:
+        return ""
+    first, last = min(dates), max(dates)
+    if first.date() == last.date():
+        return day(first)
+    if (first.year, first.month) == (last.year, last.month):
+        return f"{first.day}-{day(last)}"
+    return f"{day(first)} - {day(last)}"
+
+
+def esc(value):
+    return html.escape(str(value), quote=True)
+
+
+PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>'
+
+
+def render(meta, token="", host="share.elyesghazel.ch"):
+    items = meta.get("items") or []
     expires = int(meta["expires"])
     expiry = datetime.fromtimestamp(expires, timezone.utc)
-    cards = []
+    title = str(meta.get("title") or "GoPro")
+    dates = [d for d in (shot_date(i.get("shot")) for i in items) if d]
+    when = span(dates)
+
+    cards, clips = [], []
     for position, item in enumerate(items, 1):
         filename = str(item["file"])
-        encoded = quote(filename, safe="")
-        name = html.escape(filename.rsplit(".", 1)[0].replace("_", " "), quote=True)
+        enc = quote(filename, safe="")
+        name = filename.rsplit(".", 1)[0].replace("_", " ")
         thumb = quote(str(item.get("thumb") or ""), safe="")
-        poster = (f'<img src="t/{thumb}" alt="" loading="lazy" decoding="async">' if thumb else
-                  '<span class="no-poster">Preview unavailable<span>You can still play this clip</span></span>')
-        resolution = f'{int(item["w"])} × {int(item["h"])}' if item.get("w") else "Video"
-        stream_quality = label(item.get("h"))
-        downloads = [f'<a class="download" href="dl/v/{encoded}" aria-label="Download {name}, {stream_quality} stream copy">'
-                     f'{DOWNLOAD_ICON}<span><b>{stream_quality}</b><small>Stream copy · {human(item["size"])}</small></span></a>']
+        stream_q = label(item.get("h"))
+        downloads = [{"href": f"dl/v/{enc}", "label": stream_q, "note": human(item.get("size"))}]
         if item.get("orig"):
-            original = quote(str(item["orig"]), safe="")
-            quality = label(item.get("origH") or 2160)
-            downloads.append(f'<a class="download original" href="dl/4k/{original}" aria-label="Download {name}, {quality} original">'
-                             f'{DOWNLOAD_ICON}<span><b>{quality} original</b><small>Full-quality file · {human(item["origSize"])}</small></span></a>')
-        cards.append(f'''<article class="clip">
-<button class="poster" type="button" data-src="v/{encoded}" data-name="{name}" aria-label="Play {name}">
-{poster}<span class="play">{PLAY_ICON}</span><span class="duration">{clock(item.get("dur"))}</span>
-</button>
-<div class="clip-body"><p class="clip-index">{position:02d} <span>/ {resolution}</span></p>
-<h3 title="{html.escape(filename, quote=True)}">{name}</h3>
-<div class="download-section"><p class="section-label">Save this clip</p><div class="downloads">{"".join(downloads)}</div></div>
-</div></article>''')
-    empty = '<div class="empty"><h3>No clips in this collection</h3><p>Ask the sender for an updated link.</p></div>'
+            downloads.append({"href": f"dl/4k/{quote(str(item['orig']), safe='')}",
+                              "label": f"{label(item.get('origH') or 2160)} original",
+                              "note": human(item.get("origSize"))})
+        shot = shot_date(item.get("shot"))
+        clips.append({"src": f"v/{enc}", "name": name, "poster": f"t/{thumb}" if thumb else "",
+                      "downloads": downloads})
+
+        poster = (f'<img src="t/{thumb}" alt="" loading="lazy" decoding="async">' if thumb else
+                  '<span class="no-poster">no preview frame</span>')
+        buttons = "".join(
+            f'<a class="btn btn-sm{" is-orig" if i else ""}" href="{d["href"]}" download '
+            f'aria-label="download {esc(name)}, {esc(d["label"])}">'
+            f'{esc(d["label"])} <span class="faint">{esc(d["note"])}</span> <span class="arr">&darr;</span></a>'
+            for i, d in enumerate(downloads))
+        meta_bits = [f"{position:02d}"]
+        if item.get("w"):
+            meta_bits.append(f'{int(item["w"])}x{int(item["h"])}')
+        if shot:
+            meta_bits.append(f'{day(shot)}, {shot.strftime("%H:%M")}')
+        cards.append(f'''<article class="clip card" id="clip-{position}">
+<button class="poster" type="button" data-i="{position - 1}" aria-label="play {esc(name)}">{poster}<span class="play">{PLAY}</span><span class="dur num">{clock(item.get("dur"))}</span></button>
+<div class="clip-body"><p class="clip-meta num">{" <span>/</span> ".join(esc(b) for b in meta_bits)}</p>
+<h3 title="{esc(filename)}">{esc(name)}</h3>
+<div class="clip-dl">{buttons}</div></div></article>''')
+
+    count = len(items)
+    total_size = sum(int(i.get("size") or 0) for i in items)
+    orig_size = sum(int(i.get("origSize") or 0) for i in items)
+    runtime = clock(sum(i.get("dur") or 0 for i in items))
+    clip_word = "clip" if count == 1 else "clips"
+    summary = f"{count} {clip_word}, {runtime}" + (f", {when}" if when else "")
+    first_thumb = next((c["poster"] for c in clips if c["poster"]), "")
+    base = f"https://{host}/{token}/" if token else ""
+    og_image = (f'<meta property="og:image" content="{esc(base + first_thumb)}">\n'
+                '<meta name="twitter:card" content="summary_large_image">'
+                if base and first_thumb else '<meta name="twitter:card" content="summary">')
+    size_cell = human(total_size)
+    if orig_size:
+        size_cell += f' <small>+ {human(orig_size)} 4k</small>'
+    dl_all = ('<button class="btn btn-sm" type="button" id="dl-all">download all '
+              '<span class="arr">&darr;</span></button>' if count > 1 else "")
+    empty = ('<div class="empty"><p class="faint">// --</p><p class="ink">no clips in this collection</p>'
+             '<p class="hint">ask elyes for an updated link.</p></div>')
+
     return PAGE.substitute(
-        title=html.escape(str(meta["title"]), quote=True),
-        count=len(items), clip_word="clip" if len(items) == 1 else "clips",
-        runtime=clock(sum(item.get("dur") or 0 for item in items)),
-        size=human(sum(item["size"] for item in items)),
-        expires=expires, expiry_iso=expiry.isoformat(),
-        expiry_full=expiry.strftime("%d %B %Y, %H:%M UTC"), expiry_date=expiry.strftime("%d %b %Y"),
-        cards="\n".join(cards) if cards else empty,
+        eg=EG, title=esc(title), summary=esc(summary), og_image=og_image,
+        og_url=f'<meta property="og:url" content="{esc(base)}">' if base else "",
+        when=f'<span class="aside">{esc(when)}</span>' if when else "",
+        count=count, clip_word=clip_word, runtime=runtime, size=size_cell,
+        expires=expires, expiry_iso=expiry.isoformat(), expiry_date=day(expiry),
+        dl_all=dl_all, cards="\n".join(cards) if cards else empty,
+        clips=json.dumps(clips, ensure_ascii=False).replace("</", "<\\/"),
     )
 
 
@@ -88,85 +159,164 @@ PAGE = Template(r'''<!doctype html>
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="dark light">
-<title>$title · Shared clips</title>
-<script>
-try { const theme = localStorage.getItem('theme'); if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme; } catch {}
-</script>
+<title>$title - shared clips</title>
+<meta name="description" content="$summary. Shared by Elyes.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="share.elyesghazel.ch">
+<meta property="og:title" content="$title">
+<meta property="og:description" content="$summary. Watch or download until $expiry_date.">
+$og_url
+$og_image
+<link rel="icon" href="$eg/logo/web/favicon.ico" sizes="32x32">
+<link rel="icon" href="$eg/logo/web/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="$eg/logo/web/apple-touch-icon.png">
+<script src="$eg/theme.js"></script>
+<link rel="stylesheet" href="$eg/tokens.css">
+<link rel="stylesheet" href="$eg/components.css">
 <style>
-:root{color-scheme:dark;--bg:#000;--panel:#0b0b0b;--hover:#141414;--ink:#fff;--dim:#a6a6a6;--faint:#8a8a8a;--rule:#232323;--strong:#3a3a3a;--info:#74a7e6;--info-soft:rgba(116,167,230,.12);--warn:#d9ad5b;--warn-soft:rgba(217,173,91,.12);--font:ui-monospace,"SFMono-Regular",Menlo,Consolas,"DejaVu Sans Mono",monospace}
-@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light;--bg:#fafafa;--panel:#fff;--hover:#f0f0f0;--ink:#0a0a0a;--dim:#555;--faint:#6b6b6b;--rule:#e3e3e3;--strong:#c4c4c4;--info:#1f5fb4;--info-soft:rgba(31,95,180,.09);--warn:#8f5f00;--warn-soft:rgba(143,95,0,.1)}}
-:root[data-theme="light"]{color-scheme:light;--bg:#fafafa;--panel:#fff;--hover:#f0f0f0;--ink:#0a0a0a;--dim:#555;--faint:#6b6b6b;--rule:#e3e3e3;--strong:#c4c4c4;--info:#1f5fb4;--info-soft:rgba(31,95,180,.09);--warn:#8f5f00;--warn-soft:rgba(143,95,0,.1)}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 var(--font);-webkit-font-smoothing:antialiased}button,a{-webkit-tap-highlight-color:transparent}button{font:inherit}a{color:inherit}button:focus-visible,a:focus-visible{outline:2px solid var(--info);outline-offset:4px}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}button{cursor:pointer}.wrap{max-width:1400px;margin:0 auto;padding:0 32px}
-.bar{border-bottom:1px solid var(--rule)}.bar .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:72px}.brand{text-decoration:none;letter-spacing:-.04em;font-size:15px}.brand span{color:var(--faint)}.bar-actions{display:flex;align-items:center;gap:14px}.bar-caption{font-size:12px;color:var(--faint)}.icon-button{display:inline-grid;place-items:center;width:38px;height:38px;border:1px solid var(--rule);border-radius:2px;background:none;color:var(--ink)}.icon-button:hover{background:var(--hover);border-color:var(--strong)}
-.hero{padding:64px 0 36px}.eyebrow,.section-label{text-transform:uppercase;letter-spacing:.12em;font-size:11px;color:var(--faint);margin:0}.eyebrow{display:flex;align-items:center;gap:12px;margin-bottom:24px}.eyebrow::before{content:"//";color:var(--info)}.hero-row{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.hero-copy{min-width:0;max-width:850px}h1{font-size:clamp(30px,4.6vw,54px);line-height:1.15;letter-spacing:-.055em;font-weight:400;margin:0 0 20px;overflow-wrap:anywhere}.intro{font-size:15px;color:var(--dim);margin:0;max-width:640px}.badge{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:12px;padding:6px 10px;border-radius:2px;background:var(--warn-soft);color:var(--warn)}.badge::before{content:"";width:6px;height:6px;background:currentColor;border-radius:50%;flex:none}.share-access{flex:none;padding-top:4px}.access-note{color:var(--faint);font-size:11px;margin:9px 0 0;text-align:right}
-.collection-info{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:26px 0 28px;border-bottom:1px solid var(--rule)}.stats{display:flex;gap:40px;margin:0}.stat{display:flex;flex-direction:column-reverse;gap:3px}.stat dt{font-size:11px;color:var(--faint)}.stat dd{margin:0;font-size:18px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.expiry{font-size:12px;text-align:right;color:var(--dim)}.expiry time{color:var(--ink);font-weight:500}.expiry p{margin:2px 0 0;color:var(--faint);font-size:11px}.expiry.soon{color:var(--warn)}.expiry.soon time,.expiry.soon p{color:var(--warn)}
-.collection-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:32px 0 20px}.collection-heading h2{font-weight:400;font-size:13px;margin:0}.collection-heading h2::before{content:"// ";color:var(--faint)}.collection-heading span{color:var(--faint);font-size:11px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:24px;align-items:stretch}.clip{border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--panel);display:flex;flex-direction:column;min-width:0}.poster{display:block;position:relative;isolation:isolate;padding:0;width:100%;border:0;color:#fff;background:#101010;aspect-ratio:16/9;overflow:hidden;text-align:left}.poster::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(transparent,rgba(0,0,0,.55));z-index:0;pointer-events:none}.poster img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .3s ease}.poster:hover img{transform:scale(1.025)}.play{position:absolute;inset:0;margin:auto;display:grid;place-items:center;width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.45);z-index:1;transition:background .15s}.play svg{width:22px;height:22px;fill:currentColor;stroke-width:0;transform:translateX(-1px)}.poster:hover .play{background:rgba(0,0,0,.8)}.duration{position:absolute;right:14px;bottom:12px;z-index:1;font-size:12px;color:#fff;font-variant-numeric:tabular-nums}.no-poster{display:grid;place-content:center;gap:4px;width:100%;height:100%;padding:24px 24px 100px;text-align:center;color:#b0b0b0;font-size:12px}.no-poster span{font-size:10px;color:#8a8a8a}
-.clip-body{padding:22px;display:flex;flex-direction:column;flex:1}.clip-index{font-size:10px;color:var(--info);margin:0 0 9px;letter-spacing:.05em}.clip-index span{color:var(--faint)}h3{font-size:16px;line-height:1.5;font-weight:500;letter-spacing:-.025em;margin:0 0 24px;overflow-wrap:anywhere}.download-section{margin-top:auto;border-top:1px solid var(--rule);padding-top:16px}.download-section .section-label{font-size:10px;margin-bottom:10px}.downloads{display:flex;gap:10px;flex-wrap:wrap}.download{display:flex;align-items:center;gap:10px;flex:1 1 120px;min-height:58px;padding:9px 12px;border:1px solid var(--rule);border-radius:2px;text-decoration:none;transition:background .15s,border-color .15s}.download:hover{border-color:var(--strong);background:var(--hover)}.download svg{width:16px;height:16px;flex:none;color:var(--dim)}.download span{display:grid;gap:1px}.download b{font-size:12px;font-weight:500}.download small{font-size:10px;color:var(--faint)}.download.original{border-color:color-mix(in srgb,var(--info) 35%,var(--rule))}.download.original b,.download.original svg{color:var(--info)}.empty{grid-column:1/-1;border:1px dashed var(--rule);padding:48px 24px;text-align:center;color:var(--dim)}.empty h3{color:var(--ink);margin-bottom:8px}.empty p{margin:0}
-footer{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;border-top:1px solid var(--rule);margin-top:48px;padding:24px 0 40px;color:var(--faint);font-size:11px}footer p{margin:0;max-width:680px}footer span{white-space:nowrap;color:var(--dim)}dialog{width:min(1120px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--strong);border-radius:4px;background:var(--panel);color:var(--ink);overflow:auto}dialog::backdrop{background:rgba(0,0,0,.85)}.player-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;border-bottom:1px solid var(--rule)}.player-bar h2{margin:0;font-size:13px;font-weight:400;overflow-wrap:anywhere;min-width:0}.player-close{background:none;color:var(--ink);border:1px solid var(--rule);border-radius:2px;padding:7px 12px;flex:none;min-height:38px}.player-close:hover{background:var(--hover)}dialog video{display:block;width:100%;max-height:calc(100dvh - 140px);background:#000}.playback-error{padding:16px 20px;color:var(--warn);font-size:12px;margin:0}
-@media(min-width:1100px){.clip:only-child{max-width:calc((100% - 24px)/2)}}
-@media(max-width:700px){.wrap{padding:0 20px}.bar .wrap{min-height:62px}.bar-caption{display:none}.hero{padding-top:40px}.hero-row{flex-direction:column;gap:24px}.access-note{text-align:left}.collection-info{align-items:flex-start;gap:24px}.stats{gap:26px}.stat dd{font-size:16px}.expiry{text-align:left}.grid{gap:20px}.collection-heading span{display:none}footer{flex-direction:column;gap:12px}.clip-body{padding:20px}.hero .eyebrow{margin-bottom:18px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+.wrap{max-width:var(--measure-wide)}
+.header .theme-toggle{margin-left:auto}
+.hero{padding:var(--sp-16) 0 var(--sp-10)}
+.hero h1{color:var(--ink);font-size:clamp(28px,5vw,var(--fs-2xl));font-weight:var(--fw-regular);line-height:var(--lh-tight);letter-spacing:var(--tracking-tight);overflow-wrap:anywhere}
+.hero .lede{margin-top:var(--sp-4);max-width:36rem;color:var(--dim);font-size:var(--fs-md)}
+.stats{margin-bottom:var(--sp-12)}
+.stat-value small{font-size:var(--fs-xs)}
+#exp-cell.soon .stat-value,#exp-cell.soon .stat-label{color:var(--warn)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);margin-bottom:var(--sp-6)}
+.bar .section-label{flex:1;margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr));gap:var(--sp-6)}
+.clip{display:flex;flex-direction:column;overflow:hidden;min-width:0;transition:border-color var(--dur-1) ease}
+.clip:hover,.clip.is-current{border-color:var(--rule-strong)}
+.clip.is-current .clip-meta{color:var(--accent)}
+.poster{position:relative;display:block;width:100%;aspect-ratio:16/9;padding:0;border:0;border-bottom:1px solid var(--rule);background:#0a0a0a;color:#fff;overflow:hidden;cursor:pointer}
+.poster img{display:block;width:100%;height:100%;object-fit:cover;transition:transform 700ms var(--ease)}
+.poster:hover img{transform:scale(1.025)}
+.play{position:absolute;inset:0;margin:auto;display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(255,255,255,.5);border-radius:50%;background:rgba(0,0,0,.55);transition:background-color var(--dur-1) ease}
+.poster:hover .play{background:rgba(0,0,0,.85)}
+.play svg{width:18px;height:18px;fill:currentColor;transform:translateX(1px)}
+.dur{position:absolute;right:var(--sp-2);bottom:var(--sp-2);padding:1px 6px;border-radius:var(--radius-1);background:rgba(0,0,0,.7);font-size:var(--fs-xs)}
+.no-poster{display:grid;place-items:center;height:100%;color:#8a8a8a;font-size:var(--fs-xs)}
+.clip-body{display:flex;flex-direction:column;flex:1;gap:var(--sp-2);padding:var(--sp-4) var(--sp-5) var(--sp-5)}
+.clip-meta{color:var(--faint);font-size:var(--fs-xs)}
+.clip-meta span{color:var(--rule-strong)}
+.clip h3{color:var(--ink);font-size:var(--fs-md);font-weight:var(--fw-regular);line-height:var(--lh-snug);overflow-wrap:anywhere}
+.clip-dl{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:auto;padding-top:var(--sp-3)}
+.clip-dl .btn{flex:1 1 auto}
+.btn .arr{transition:transform var(--dur-2) var(--ease)}
+.btn:hover .arr{transform:translateY(2px)}
+.empty{grid-column:1/-1;display:grid;gap:var(--sp-2);padding:var(--sp-12) var(--sp-6);border:1px dashed var(--rule-strong);border-radius:var(--radius-2);text-align:center}
+.footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--sp-4);margin-top:var(--sp-16);padding:var(--sp-6) 0 var(--sp-10);border-top:1px solid var(--rule);color:var(--faint);font-size:var(--fs-xs)}
+dialog{width:min(1180px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--rule-strong);border-radius:var(--radius-2);background:var(--bg-raised);color:var(--body);overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.9)}
+.pl-head,.pl-foot{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4)}
+.pl-head{border-bottom:1px solid var(--rule)}
+.pl-foot{border-top:1px solid var(--rule);flex-wrap:wrap}
+.pl-head h2{flex:1;min-width:0;color:var(--ink);font-size:var(--fs-sm);font-weight:var(--fw-regular);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-pos{color:var(--faint);font-size:var(--fs-xs)}
+dialog video{display:block;width:100%;max-height:calc(100dvh - 150px);background:#000}
+.pl-err{padding:var(--sp-3) var(--sp-4);color:var(--warn);font-size:var(--fs-xs)}
+.pl-nav{display:flex;gap:var(--sp-2);margin-left:auto}
+.pl-keys{color:var(--faint);font-size:var(--fs-2xs)}
+@media (max-width:640px){.wrap{padding:0 var(--sp-4)}.hero{padding:var(--sp-10) 0 var(--sp-8)}.pl-keys{display:none}dialog{width:100%;max-height:100dvh;border-radius:0;border-width:1px 0}dialog video{max-height:calc(100dvh - 170px)}}
 </style>
 </head>
 <body>
-<header class="bar"><div class="wrap"><span class="brand">elyesghazel<span> / shared clips</span></span><div class="bar-actions"><span class="bar-caption">Good moments, passed along.</span><button id="theme-toggle" class="icon-button" type="button" aria-label="Switch color theme"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor" stroke="none"/></svg></button></div></div></header>
+<header class="header"><div class="wrap header-in">
+<a class="wordmark" href="https://elyesghazel.ch" rel="noreferrer"><span class="sub">share.</span>elyesghazel<span class="tld">.ch</span></a>
+<button class="theme-toggle" type="button" data-theme-toggle aria-label="toggle theme"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1a7 7 0 0 1 0 14z" fill="currentColor"/></svg></button>
+</div></header>
 <main class="wrap">
-<section class="hero" aria-labelledby="collection-title"><p class="eyebrow">A collection from Elyes</p><div class="hero-row"><div class="hero-copy"><h1 id="collection-title">$title</h1><p class="intro">Watch here. Download the moments you want to keep.</p></div><div class="share-access"><span class="badge">Anyone with the link</span><p class="access-note">No account needed. Forward thoughtfully.</p></div></div></section>
-<section class="collection-info" aria-label="Collection details"><dl class="stats"><div class="stat"><dt>In this collection</dt><dd>$count $clip_word</dd></div><div class="stat"><dt>Total runtime</dt><dd>$runtime</dd></div><div class="stat"><dt>Stream copies</dt><dd>$size</dd></div></dl><div class="expiry" id="expiry"><span id="expiry-label">Link expires</span> <time id="exp" data-expires="$expires" datetime="$expiry_iso" title="$expiry_full">$expiry_date</time><p id="expiry-relative">Save your favourites before then.</p></div></section>
-<section aria-labelledby="clips-heading"><div class="collection-heading"><h2 id="clips-heading">The collection</h2><span>Play a preview · choose a download below</span></div><div class="grid">$cards</div></section>
-<footer><p>These clips are shared through a temporary link, not a private account. Anyone with the link can watch and download. Save a copy before the link expires.</p><span>Shared by Elyes Ghazel</span></footer>
+<section class="hero">
+<h2 class="section-label"><span class="slashes">//</span> shared clips $when</h2>
+<h1>$title</h1>
+<p class="lede">Clips Elyes sent you. Play them here, download the ones you want to keep.</p>
+</section>
+<div class="stats">
+<div class="stat"><span class="stat-value num">$count</span><span class="stat-label">$clip_word</span></div>
+<div class="stat"><span class="stat-value num">$runtime</span><span class="stat-label">runtime</span></div>
+<div class="stat"><span class="stat-value num">$size</span><span class="stat-label">to download</span></div>
+<div class="stat" id="exp-cell"><span class="stat-value num" id="exp-left">$expiry_date</span><span class="stat-label"><time id="exp" data-expires="$expires" datetime="$expiry_iso">until $expiry_date</time></span></div>
+</div>
+<section aria-labelledby="clips-h">
+<div class="bar"><h2 class="section-label" id="clips-h"><span class="slashes">//</span> clips</h2>$dl_all</div>
+<div class="grid">$cards</div>
+</section>
+<footer class="footer"><span>anyone with this link can watch and download. it deletes itself on $expiry_date.</span><a class="link" href="https://elyesghazel.ch" rel="noreferrer">elyesghazel.ch &rarr;</a></footer>
 </main>
-<dialog id="player" aria-labelledby="player-name"><div class="player-bar"><h2 id="player-name">Video preview</h2><button id="close" class="player-close" type="button">Close <span aria-hidden="true">×</span></button></div><video id="video" controls playsinline preload="metadata"></video><p id="playback-error" class="playback-error" role="status" hidden>This browser couldn’t play the preview. Close the player and use a download button to watch it locally.</p></dialog>
+<dialog id="player" aria-labelledby="pl-name">
+<div class="pl-head"><span class="pl-pos num" id="pl-pos"></span><h2 id="pl-name">clip</h2><button class="btn btn-sm btn-ghost" type="button" id="pl-close">close &times;</button></div>
+<video id="video" controls playsinline preload="metadata"></video>
+<p class="pl-err" id="pl-err" role="status" hidden>this browser can't play the preview. download the clip and watch it locally.</p>
+<div class="pl-foot"><div class="clip-dl" id="pl-dl" style="margin:0;padding:0"></div><span class="pl-keys">&larr; &rarr; switch clips</span><div class="pl-nav"><button class="btn btn-sm" type="button" id="pl-prev">&larr; prev</button><button class="btn btn-sm" type="button" id="pl-next">next &rarr;</button></div></div>
+</dialog>
 <script>
-const themeToggle = document.getElementById('theme-toggle');
-function currentTheme() { return document.documentElement.dataset.theme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); }
-function updateThemeLabel() { themeToggle.setAttribute('aria-label', 'Switch to ' + (currentTheme() === 'dark' ? 'light' : 'dark') + ' theme'); }
-updateThemeLabel();
-themeToggle.addEventListener('click', function () {
-  const theme = currentTheme() === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = theme;
-  try { localStorage.setItem('theme', theme); } catch {}
-  updateThemeLabel();
-});
-const expiresAt = Number(document.getElementById('exp').dataset.expires);
-const expiry = document.getElementById('expiry');
-const expiryTime = document.getElementById('exp');
-const expiryRelative = document.getElementById('expiry-relative');
-expiryTime.textContent = new Intl.DateTimeFormat(undefined, {day:'numeric',month:'short',year:'numeric'}).format(new Date(expiresAt * 1000));
-expiryTime.title = new Intl.DateTimeFormat(undefined, {dateStyle:'full',timeStyle:'short'}).format(new Date(expiresAt * 1000));
-function updateExpiry() {
-  const remaining = expiresAt - Math.floor(Date.now() / 1000);
-  expiry.classList.toggle('soon', remaining < 86400);
-  if (remaining <= 0) {
-    document.getElementById('expiry-label').textContent = 'Link expired';
-    expiryRelative.textContent = 'Ask Elyes for a fresh link if the files are unavailable.';
-    return;
+(function () {
+  var clips = $clips;
+  var $$ = function (id) { return document.getElementById(id); };
+
+  // expiry countdown, local time
+  var exp = Number($$('exp').dataset.expires) * 1000;
+  var fmt = new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+  $$('exp').textContent = 'until ' + fmt.format(new Date(exp));
+  function tick() {
+    var s = Math.floor((exp - Date.now()) / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    $$('exp-cell').classList.toggle('soon', s < 86400);
+    $$('exp-left').textContent = s <= 0 ? 'expired' : d > 0 ? d + (d === 1 ? ' day' : ' days') : h > 0 ? h + 'h ' + m + 'm' : Math.max(m, 1) + 'm';
   }
-  const days = Math.floor(remaining / 86400);
-  const hours = Math.floor(remaining % 86400 / 3600);
-  const minutes = Math.floor(remaining % 3600 / 60);
-  const relative = days > 0 ? days + (days === 1 ? ' day' : ' days') : hours > 0 ? hours + 'h ' + minutes + 'm' : minutes > 0 ? minutes + 'm' : 'less than a minute';
-  expiryRelative.textContent = 'Expires in ' + relative + ' · download to keep a copy.';
-}
-updateExpiry();
-setInterval(updateExpiry, 30000);
-const player = document.getElementById('player');
-const video = document.getElementById('video');
-const playbackError = document.getElementById('playback-error');
-document.querySelectorAll('.poster').forEach(function (poster) {
-  poster.addEventListener('click', function () {
-    playbackError.hidden = true;
-    video.src = poster.dataset.src;
-    document.getElementById('player-name').textContent = poster.dataset.name;
-    player.showModal();
-    video.play().catch(function () {});
+  tick(); setInterval(tick, 30000);
+
+  // download all: one anchor click per file, spaced out so browsers don't drop them
+  var all = $$('dl-all');
+  if (all) all.addEventListener('click', function () {
+    clips.forEach(function (c, i) {
+      setTimeout(function () { var a = document.createElement('a'); a.href = c.downloads[c.downloads.length - 1].href; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); }, i * 800);
+    });
   });
-});
-function closePlayer() { player.close(); }
-document.getElementById('close').addEventListener('click', closePlayer);
-player.addEventListener('click', function (event) { if (event.target === player) closePlayer(); });
-player.addEventListener('close', function () { video.pause(); video.removeAttribute('src'); video.load(); playbackError.hidden = true; });
-video.addEventListener('error', function () { if (video.hasAttribute('src')) playbackError.hidden = false; });
+
+  // player
+  var player = $$('player'), video = $$('video'), err = $$('pl-err'), cur = -1;
+  function show(i) {
+    if (i < 0 || i >= clips.length) return;
+    cur = i; var c = clips[i];
+    err.hidden = true;
+    video.poster = c.poster; video.src = c.src;
+    $$('pl-name').textContent = c.name;
+    $$('pl-pos').textContent = String(i + 1).padStart(2, '0') + ' / ' + String(clips.length).padStart(2, '0');
+    $$('pl-dl').innerHTML = '';
+    c.downloads.forEach(function (d) {
+      var a = document.createElement('a'); a.className = 'btn btn-sm'; a.href = d.href; a.download = '';
+      a.innerHTML = '<span></span> <span class="faint"></span> <span class="arr">&darr;</span>';
+      a.children[0].textContent = d.label; a.children[1].textContent = d.note;
+      $$('pl-dl').appendChild(a);
+    });
+    $$('pl-prev').disabled = i === 0; $$('pl-next').disabled = i === clips.length - 1;
+    document.querySelectorAll('.clip').forEach(function (el, j) { el.classList.toggle('is-current', j === i); });
+    history.replaceState(null, '', '#clip-' + (i + 1));
+    if (!player.open) player.showModal();
+    video.play().catch(function () {});
+  }
+  document.querySelectorAll('.poster').forEach(function (b) { b.addEventListener('click', function () { show(Number(b.dataset.i)); }); });
+  $$('pl-prev').addEventListener('click', function () { show(cur - 1); });
+  $$('pl-next').addEventListener('click', function () { show(cur + 1); });
+  $$('pl-close').addEventListener('click', function () { player.close(); });
+  player.addEventListener('click', function (e) { if (e.target === player) player.close(); });
+  player.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' && e.shiftKey === false && document.activeElement !== video) { e.preventDefault(); show(cur + 1); }
+    if (e.key === 'ArrowLeft' && e.shiftKey === false && document.activeElement !== video) { e.preventDefault(); show(cur - 1); }
+  });
+  video.addEventListener('ended', function () { if (cur < clips.length - 1) show(cur + 1); });
+  video.addEventListener('error', function () { if (video.getAttribute('src')) err.hidden = false; });
+  player.addEventListener('close', function () {
+    video.pause(); video.removeAttribute('src'); video.load();
+    var el = document.getElementById('clip-' + (cur + 1));
+    history.replaceState(null, '', location.pathname);
+    if (el) el.querySelector('.poster').focus({preventScroll: true});
+  });
+
+  // #clip-3 opens that clip (handy for pointing someone at one moment)
+  var m = /^#clip-(\d+)$$/.exec(location.hash);
+  if (m && clips[m[1] - 1]) { document.getElementById('clip-' + m[1]).scrollIntoView(); show(m[1] - 1); }
+})();
 </script>
 </body>
 </html>
@@ -174,5 +324,8 @@ video.addEventListener('error', function () { if (video.hasAttribute('src')) pla
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1]) as source:
-        print(render(json.load(source)))
+    path = sys.argv[1]
+    token = os.path.basename(os.path.dirname(os.path.abspath(path)))
+    host = sys.argv[2] if len(sys.argv) > 2 else "share.elyesghazel.ch"
+    with open(path) as source:
+        print(render(json.load(source), token, host))

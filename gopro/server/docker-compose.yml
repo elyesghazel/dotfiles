@@ -10,6 +10,8 @@ services:
     volumes:
       - /srv/media/gopro-share:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/share-static:ro
+      - /opt/docker/design/public:/usr/share/nginx/eg:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gopro-share.rule=Host(`share.elyesghazel.ch`)"
