@@ -15,7 +15,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gopro-share.rule=Host(`share.elyesghazel.ch`)"
-      - "traefik.http.routers.gopro-share.entrypoints=https"
+      - "traefik.http.routers.gopro-share.entrypoints=direct"
       - "traefik.http.routers.gopro-share.tls=true"
       - "traefik.http.routers.gopro-share.tls.certresolver=cloudflare"
       - "traefik.http.services.gopro-share.loadbalancer.server.port=80"
